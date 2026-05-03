@@ -126,10 +126,8 @@ body {
     justify-content: center;
     flex-shrink: 0;
 }
-.navbar-logo .logo-icon svg {
-    width: 18px;
-    height: 18px;
-    fill: #fff;
+.navbar-logo .logo-icon {
+    display: none;
 }
 
 .logo-img {
