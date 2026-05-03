@@ -132,6 +132,13 @@ body {
     fill: #fff;
 }
 
+.logo-img {
+    width: 34px;
+    height: 34px;
+    object-fit: cover;
+    border-radius: 8px;
+}
+
 .navbar-center {
     flex: 1;
     max-width: 500px;
