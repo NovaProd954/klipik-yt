@@ -757,3 +757,12 @@ body {
     .player-controls .seek-bar { min-width: 30px; }
     .btn-like { padding: 4px 8px; font-size: 0.7rem; border-radius: 14px; }
 }
+
+/* Additional styles for YouTube button */
+#youtubeBtn {
+    background: #FF0000;   /* YouTube red */
+}
+#youtubeBtn:hover {
+    background: #cc0000;
+    box-shadow: 0 4px 12px rgba(255, 0, 0, 0.35);
+}
