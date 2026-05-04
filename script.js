@@ -2,7 +2,7 @@
     // ──────────────────────────────────────
     // IndexedDB Helpers
     // ──────────────────────────────────────
-    const DB_NAME = 'VideoHubDB';
+    const DB_NAME = 'KlipikDB';
     const DB_VERSION = 1;
     const STORE_NAME = 'videos';
 
@@ -80,7 +80,7 @@
     let currentVideoId = null;
     let searchQuery = '';
     let isDarkTheme = true;
-    let activeObjectURLs = new Map();
+    let activeObjectURLs = new Map(); // only for local videos
 
     // ──────────────────────────────────────
     // DOM References
@@ -118,15 +118,16 @@
     const themeIconMoon = $('#themeIconMoon');
     const btnClosePlayer = $('#btnClosePlayer');
     const playerControls = $('#playerControls');
+    const youtubePlayer = $('#youtubePlayer');  // new
 
     // ──────────────────────────────────────
-    // Theme
+    // Theme (unchanged)
     // ──────────────────────────────────────
     function applyTheme() {
         document.documentElement.setAttribute('data-theme', isDarkTheme ? 'dark' : 'light');
         themeIconSun.style.display = isDarkTheme ? 'none' : '';
         themeIconMoon.style.display = isDarkTheme ? '' : 'none';
-        try { localStorage.setItem('videohub_theme', isDarkTheme ? 'dark' : 'light'); } catch (e) {}
+        try { localStorage.setItem('klipik_theme', isDarkTheme ? 'dark' : 'light'); } catch (e) {}
     }
 
     function toggleTheme() {
@@ -136,7 +137,7 @@
 
     function loadTheme() {
         try {
-            const saved = localStorage.getItem('videohub_theme');
+            const saved = localStorage.getItem('klipik_theme');
             if (saved === 'light') isDarkTheme = false;
             else if (saved === 'dark') isDarkTheme = true;
         } catch (e) {}
@@ -144,7 +145,7 @@
     }
 
     // ──────────────────────────────────────
-    // Toast
+    // Toast (unchanged)
     // ──────────────────────────────────────
     function showToast(message, type = '') {
         const toast = document.createElement('div');
@@ -157,7 +158,7 @@
     }
 
     // ──────────────────────────────────────
-    // Utility
+    // Utility (formatTime, formatDate, etc.)
     // ──────────────────────────────────────
     function formatTime(seconds) {
         if (isNaN(seconds) || seconds < 0) return '0:00';
@@ -191,7 +192,35 @@
     }
 
     // ──────────────────────────────────────
-    // Thumbnail Generation
+    // YouTube oEmbed Fetch
+    // ──────────────────────────────────────
+    async function fetchYouTubeMeta(url) {
+        try {
+            const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
+            const resp = await fetch(oembedUrl);
+            if (!resp.ok) throw new Error('Invalid YouTube URL');
+            const data = await resp.json();
+            // Extract video ID from URL
+            const videoId = extractYouTubeId(url);
+            const thumbnail = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+            return {
+                title: data.title,
+                thumbnail: thumbnail,
+                videoId: videoId,
+            };
+        } catch (err) {
+            throw new Error('Could not fetch video information. Make sure the URL is correct.');
+        }
+    }
+
+    function extractYouTubeId(url) {
+        const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
+        const match = url.match(regExp);
+        return (match && match[7].length === 11) ? match[7] : null;
+    }
+
+    // ──────────────────────────────────────
+    // Thumbnail Generation (for local files)
     // ──────────────────────────────────────
     function generateThumbnail(file) {
         return new Promise((resolve, reject) => {
@@ -266,7 +295,7 @@
     }
 
     // ──────────────────────────────────────
-    // Video Upload
+    // Video Upload (local)
     // ──────────────────────────────────────
     async function handleFileUpload(file) {
         if (!file || !file.type.startsWith('video/')) {
@@ -292,6 +321,7 @@
 
         const videoRecord = {
             id: id,
+            type: 'local',
             title: title,
             timestamp: timestamp,
             blob: file,
@@ -306,6 +336,7 @@
             activeObjectURLs.set(id, objectURL);
             const videoObj = {
                 id: id,
+                type: 'local',
                 title: title,
                 timestamp: timestamp,
                 url: objectURL,
@@ -324,8 +355,57 @@
         }
     }
 
-    function triggerUpload() {
-        fileInput.click();
+    // ──────────────────────────────────────
+    // Add YouTube Video
+    // ──────────────────────────────────────
+    async function addYouTubeVideo() {
+        let url = prompt('Enter YouTube video URL:');
+        if (!url) return;
+        url = url.trim();
+        const videoId = extractYouTubeId(url);
+        if (!videoId) {
+            showToast('Invalid YouTube URL.', 'error');
+            return;
+        }
+
+        showToast('Fetching video info...', '');
+        try {
+            const meta = await fetchYouTubeMeta(url);
+            const id = generateId();
+            const timestamp = Date.now();
+
+            const videoRecord = {
+                id: id,
+                type: 'youtube',
+                title: meta.title,
+                timestamp: timestamp,
+                youtubeId: videoId,
+                url: url,
+                thumbnail: meta.thumbnail,
+                likes: 0,
+                views: 0,
+                liked: false
+            };
+
+            await dbAddVideo(videoRecord);
+            const videoObj = {
+                id: id,
+                type: 'youtube',
+                title: meta.title,
+                timestamp: timestamp,
+                youtubeId: videoId,
+                url: url,
+                thumbnail: meta.thumbnail,
+                likes: 0,
+                views: 0,
+                liked: false
+            };
+            videoList.unshift(videoObj);
+            renderLibrary();
+            showToast('YouTube video added!', 'success');
+        } catch (err) {
+            showToast(err.message || 'Failed to add YouTube video.', 'error');
+        }
     }
 
     // ──────────────────────────────────────
@@ -336,7 +416,7 @@
         if (!video) return;
         if (!confirm('Delete "' + video.title + '"? This cannot be undone.')) return;
 
-        if (activeObjectURLs.has(id)) {
+        if (video.type === 'local' && activeObjectURLs.has(id)) {
             URL.revokeObjectURL(activeObjectURLs.get(id));
             activeObjectURLs.delete(id);
         }
@@ -354,7 +434,7 @@
     }
 
     // ──────────────────────────────────────
-    // Player
+    // Player (modified to handle YouTube)
     // ──────────────────────────────────────
     function openPlayer(videoId) {
         const video = videoList.find(v => v.id === videoId);
@@ -373,14 +453,39 @@
             btnLike.classList.remove('liked');
         }
 
-        videoElement.src = video.url;
-        videoElement.load();
-        videoElement.currentTime = 0;
-        seekBar.value = 0;
-        timeDisplay.textContent = '0:00 / 0:00';
-        iconPlay.style.display = '';
-        iconPause.style.display = 'none';
-        playOverlay.classList.add('visible');
+        // Hide both players initially
+        videoElement.style.display = 'none';
+        youtubePlayer.style.display = 'none';
+        youtubePlayer.innerHTML = '';
+        videoElement.src = '';
+
+        if (video.type === 'youtube') {
+            // Show YouTube iframe
+            const iframe = document.createElement('iframe');
+            iframe.width = '100%';
+            iframe.height = '100%';
+            iframe.src = `https://www.youtube.com/embed/${video.youtubeId}?autoplay=1&controls=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`;
+            iframe.allow = 'autoplay; encrypted-media; fullscreen';
+            iframe.style.border = 'none';
+            iframe.setAttribute('allowfullscreen', 'true');
+            youtubePlayer.appendChild(iframe);
+            youtubePlayer.style.display = 'block';
+            // Hide custom controls for YouTube (they have their own)
+            playerControls.style.display = 'none';
+            playOverlay.classList.remove('visible');
+        } else {
+            // Local video
+            videoElement.src = video.url;
+            videoElement.load();
+            videoElement.currentTime = 0;
+            videoElement.style.display = 'block';
+            playerControls.style.display = '';
+            seekBar.value = 0;
+            timeDisplay.textContent = '0:00 / 0:00';
+            iconPlay.style.display = '';
+            iconPause.style.display = 'none';
+            playOverlay.classList.add('visible');
+        }
 
         playerSection.classList.add('active');
         playerSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -393,6 +498,10 @@
         videoElement.pause();
         videoElement.src = '';
         videoElement.removeAttribute('src');
+        videoElement.style.display = 'none';
+        youtubePlayer.innerHTML = '';
+        youtubePlayer.style.display = 'none';
+        playerControls.style.display = ''; // restore
         playerSection.classList.remove('active');
         iconPlay.style.display = '';
         iconPause.style.display = 'none';
@@ -404,8 +513,9 @@
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
+    // Local video play/pause
     function togglePlayPause() {
-        if (!videoElement.src) return;
+        if (!currentVideoId || !videoElement.src) return;
         if (videoElement.paused) {
             videoElement.play().catch(() => {});
             iconPlay.style.display = 'none';
@@ -419,6 +529,7 @@
     }
 
     function toggleMute() {
+        if (!currentVideoId || videoElement.style.display === 'none') return;
         videoElement.muted = !videoElement.muted;
         updateMuteIcon();
     }
@@ -436,13 +547,12 @@
     }
 
     function toggleFullscreen() {
-        const container = playerSection.querySelector('.player-wrapper');
+        const wrapper = playerSection.querySelector('.player-wrapper');
         if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-            const el = container;
-            if (el.requestFullscreen) {
-                el.requestFullscreen();
-            } else if (el.webkitRequestFullscreen) {
-                el.webkitRequestFullscreen();
+            if (wrapper.requestFullscreen) {
+                wrapper.requestFullscreen();
+            } else if (wrapper.webkitRequestFullscreen) {
+                wrapper.webkitRequestFullscreen();
             }
         } else {
             if (document.exitFullscreen) {
@@ -471,7 +581,7 @@
     }
 
     // ──────────────────────────────────────
-    // Render Library
+    // Render Library (modified for YouTube cards)
     // ──────────────────────────────────────
     function getFilteredVideos() {
         if (!searchQuery.trim()) return videoList;
@@ -570,7 +680,7 @@
         }
         const badge = document.createElement('span');
         badge.className = 'duration-badge';
-        badge.textContent = 'VIDEO';
+        badge.textContent = video.type === 'youtube' ? 'YouTube' : 'VIDEO';
         badge.style.fontSize = '0.65rem';
         badge.style.letterSpacing = '0.5px';
         thumbWrap.appendChild(badge);
@@ -620,12 +730,13 @@
     }
 
     // ──────────────────────────────────────
-    // Load from IndexedDB
+    // Load from IndexedDB (supports both types)
     // ──────────────────────────────────────
     async function loadVideosFromDB() {
         try {
             const records = await dbGetAllVideos();
             videoList = [];
+            // Revoke old object URLs for local videos
             for (const url of activeObjectURLs.values()) {
                 URL.revokeObjectURL(url);
             }
@@ -633,18 +744,35 @@
 
             records.sort((a, b) => b.timestamp - a.timestamp);
             for (const rec of records) {
-                const objectURL = URL.createObjectURL(rec.blob);
-                activeObjectURLs.set(rec.id, objectURL);
-                videoList.push({
-                    id: rec.id,
-                    title: rec.title,
-                    timestamp: rec.timestamp,
-                    url: objectURL,
-                    thumbnail: rec.thumbnail || null,
-                    likes: rec.likes || 0,
-                    views: rec.views || 0,
-                    liked: rec.liked || false
-                });
+                if (rec.type === 'youtube') {
+                    videoList.push({
+                        id: rec.id,
+                        type: 'youtube',
+                        title: rec.title,
+                        timestamp: rec.timestamp,
+                        youtubeId: rec.youtubeId,
+                        url: rec.url,
+                        thumbnail: rec.thumbnail || null,
+                        likes: rec.likes || 0,
+                        views: rec.views || 0,
+                        liked: rec.liked || false
+                    });
+                } else {
+                    // local
+                    const objectURL = URL.createObjectURL(rec.blob);
+                    activeObjectURLs.set(rec.id, objectURL);
+                    videoList.push({
+                        id: rec.id,
+                        type: 'local',
+                        title: rec.title,
+                        timestamp: rec.timestamp,
+                        url: objectURL,
+                        thumbnail: rec.thumbnail || null,
+                        likes: rec.likes || 0,
+                        views: rec.views || 0,
+                        liked: rec.liked || false
+                    });
+                }
             }
         } catch (e) {
             console.error('Failed to load videos from IndexedDB:', e);
@@ -656,8 +784,13 @@
     // ──────────────────────────────────────
     // Event Listeners
     // ──────────────────────────────────────
-    document.getElementById('uploadBtn').addEventListener('click', triggerUpload);
-    document.getElementById('emptyUploadBtn').addEventListener('click', triggerUpload);
+    document.getElementById('uploadBtn').addEventListener('click', () => {
+        fileInput.click();
+    });
+    document.getElementById('youtubeBtn').addEventListener('click', addYouTubeVideo);
+    document.getElementById('emptyUploadBtn').addEventListener('click', () => {
+        fileInput.click();
+    });
     document.getElementById('logoBtn').addEventListener('click', () => {
         closePlayer();
         searchInput.value = '';
@@ -679,8 +812,11 @@
     btnClosePlayer.addEventListener('click', closePlayer);
     btnPlayPause.addEventListener('click', togglePlayPause);
     videoContainer.addEventListener('click', (e) => {
-        if (e.target === videoContainer || e.target === videoElement || e.target === playOverlay || playOverlay.contains(e.target)) {
-            togglePlayPause();
+        // Only toggle local video play/pause if it's visible
+        if (currentVideoId && videoElement.style.display !== 'none' && videoElement.src) {
+            if (e.target === videoContainer || e.target === videoElement || e.target === playOverlay || playOverlay.contains(e.target)) {
+                togglePlayPause();
+            }
         }
     });
     btnMute.addEventListener('click', toggleMute);
@@ -738,6 +874,8 @@
     document.addEventListener('keydown', (e) => {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
         if (!currentVideoId) return;
+        // Only apply these shortcuts for local videos
+        if (videoElement.style.display === 'none') return;
         switch (e.key.toLowerCase()) {
             case ' ':
                 e.preventDefault();
@@ -836,6 +974,7 @@
         updateMuteIcon();
         videoElement.volume = 1;
         volumeBar.value = 1;
+        // hide custom controls for YouTube by default (will be shown for local)
     }
 
     init();
