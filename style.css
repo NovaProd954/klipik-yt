@@ -767,3 +767,25 @@ body {
     background: #cc0000;
     box-shadow: 0 4px 12px rgba(255, 0, 0, 0.35);
       } 
+
+/* Utility Tabs + Shared Rows */
+.utility-tabs { display:flex; gap:8px; margin: 6px 0 16px; }
+.utility-tab { border:1px solid var(--border); background:var(--bg-secondary); color:var(--text-secondary); border-radius:18px; padding:8px 14px; font-weight:600; cursor:pointer; }
+.utility-tab.active { color:var(--text-primary); border-color:var(--accent); background:var(--accent-soft); }
+.tab-badge { margin-left:6px; min-width:20px; height:20px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:var(--accent); color:#fff; font-size:0.75rem; padding:0 6px; }
+
+.group-card { background: var(--card-bg); border:1px solid var(--border); border-radius: var(--radius-md); margin-bottom:14px; overflow:hidden; }
+.group-card h3 { font-size:0.92rem; text-transform:capitalize; padding:12px 14px; border-bottom:1px solid var(--border); color:var(--text-secondary); }
+.setting-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; border-bottom:1px solid var(--border); cursor:pointer; }
+.setting-row:last-child { border-bottom:none; }
+.setting-row:hover { background: var(--card-hover); }
+.setting-row-text { min-width:0; }
+.setting-row-title { color:var(--text-primary); font-weight:500; }
+.setting-row-subtitle { color:var(--text-tertiary); font-size:0.82rem; margin-top:2px; }
+.notification-item.unread .setting-row-title { font-weight:700; }
+.notification-item.unread::before { content:''; width:8px; height:8px; border-radius:50%; background:var(--accent); display:inline-block; margin-right:6px; }
+
+.toggle-switch { width:46px; height:26px; border:none; border-radius:999px; background:var(--border); position:relative; cursor:pointer; transition:all var(--transition-fast); }
+.toggle-switch span { position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:#fff; transition:all var(--transition-fast); }
+.toggle-switch.active { background: var(--accent); }
+.toggle-switch.active span { left:23px; }

@@ -80,7 +80,11 @@
     let currentVideoId = null;
     let searchQuery = '';
     let isDarkTheme = true;
+    let themePreference = 'dark';
+    let activeScreen = 'library';
     let activeObjectURLs = new Map();
+    let notifications = [];
+    let settingsState = {};
 
     // ──────────────────────────────────────
     // DOM References
@@ -119,18 +123,31 @@
     const btnClosePlayer = $('#btnClosePlayer');
     const playerControls = $('#playerControls');
     const youtubePlayer = $('#youtubePlayer');
+    const tabLibrary = $('#tabLibrary');
+    const tabNotifications = $('#tabNotifications');
+    const tabSettings = $('#tabSettings');
+    const notificationBadge = $('#notificationBadge');
+    const notificationsScreen = $('#notificationsScreen');
+    const notificationGroups = $('#notificationGroups');
+    const settingsScreen = $('#settingsScreen');
+    const settingsContent = $('#settingsContent');
 
     // ──────────────────────────────────────
     // Theme
     // ──────────────────────────────────────
     function applyTheme() {
+        if (themePreference === 'system') {
+            isDarkTheme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        }
         document.documentElement.setAttribute('data-theme', isDarkTheme ? 'dark' : 'light');
         themeIconSun.style.display = isDarkTheme ? 'none' : '';
         themeIconMoon.style.display = isDarkTheme ? '' : 'none';
-        try { localStorage.setItem('klipik_theme', isDarkTheme ? 'dark' : 'light'); } catch (e) {}
+        try { localStorage.setItem('klipik_theme', themePreference); } catch (e) {}
     }
 
     function toggleTheme() {
+        if (themePreference === 'system') themePreference = isDarkTheme ? 'light' : 'dark';
+        else themePreference = isDarkTheme ? 'light' : 'dark';
         isDarkTheme = !isDarkTheme;
         applyTheme();
     }
@@ -138,10 +155,55 @@
     function loadTheme() {
         try {
             const saved = localStorage.getItem('klipik_theme');
-            if (saved === 'light') isDarkTheme = false;
-            else if (saved === 'dark') isDarkTheme = true;
+            if (saved === 'light') { themePreference = 'light'; isDarkTheme = false; }
+            else if (saved === 'dark') { themePreference = 'dark'; isDarkTheme = true; }
+            else if (saved === 'system') themePreference = 'system';
         } catch (e) {}
         applyTheme();
+    }
+
+    function saveUiState() {
+        try {
+            localStorage.setItem('klipik_notifications', JSON.stringify(notifications));
+            localStorage.setItem('klipik_settings', JSON.stringify(settingsState));
+        } catch (e) {}
+    }
+
+    function loadUiState() {
+        const defaults = {
+            playbackAutoplay: true,
+            playbackInline: true,
+            downloadsWifiOnly: true,
+            downloadsAutoDelete: false,
+            storageLimitGb: 5,
+            privacyWatchHistory: true,
+            privacyPersonalizedAds: false
+        };
+        settingsState = defaults;
+        notifications = [
+            { id: 'n1', group: 'new content', title: 'Creator Studio posted: Editing Basics', read: false, time: Date.now() - 7200000 },
+            { id: 'n2', group: 'comments', title: 'A user replied: “Great upload!”', read: false, time: Date.now() - 4800000 },
+            { id: 'n3', group: 'follows', title: 'You have 2 new followers', read: true, time: Date.now() - 86400000 },
+            { id: 'n4', group: 'system', title: 'Storage optimization completed', read: true, time: Date.now() - 172800000 }
+        ];
+        try {
+            const rawN = localStorage.getItem('klipik_notifications');
+            const rawS = localStorage.getItem('klipik_settings');
+            if (rawN) notifications = JSON.parse(rawN);
+            if (rawS) settingsState = { ...defaults, ...JSON.parse(rawS) };
+        } catch (e) {}
+    }
+
+    function setActiveScreen(screen) {
+        activeScreen = screen;
+        const isLibrary = screen === 'library';
+        videoGrid.style.display = isLibrary ? '' : 'none';
+        emptyState.style.display = isLibrary ? emptyState.style.display : 'none';
+        notificationsScreen.hidden = screen !== 'notifications';
+        settingsScreen.hidden = screen !== 'settings';
+        tabLibrary.classList.toggle('active', isLibrary);
+        tabNotifications.classList.toggle('active', screen === 'notifications');
+        tabSettings.classList.toggle('active', screen === 'settings');
     }
 
     // ──────────────────────────────────────
@@ -601,6 +663,7 @@
     }
 
     function renderLibrary() {
+        if (activeScreen !== 'library') return;
         const filtered = getFilteredVideos();
         videoGrid.innerHTML = '';
         if (filtered.length === 0 && videoList.length === 0) {
@@ -646,6 +709,76 @@
                 playerViews.textContent = formatViews(cv.views);
             }
         }
+    }
+
+    function createRow({ title, subtitle = '', trailing = null, onClick = null }) {
+        const row = document.createElement('div');
+        row.className = 'setting-row';
+        if (onClick) row.addEventListener('click', onClick);
+        const text = document.createElement('div');
+        text.className = 'setting-row-text';
+        text.innerHTML = `<div class="setting-row-title">${title}</div>${subtitle ? `<div class="setting-row-subtitle">${subtitle}</div>` : ''}`;
+        row.appendChild(text);
+        if (trailing) row.appendChild(trailing);
+        return row;
+    }
+
+    function createToggle(key) {
+        const btn = document.createElement('button');
+        btn.className = 'toggle-switch' + (settingsState[key] ? ' active' : '');
+        btn.innerHTML = '<span></span>';
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            settingsState[key] = !settingsState[key];
+            btn.classList.toggle('active', settingsState[key]);
+            saveUiState();
+        });
+        return btn;
+    }
+
+    function renderNotifications() {
+        const groups = ['new content', 'comments', 'follows', 'system'];
+        const unread = notifications.filter(n => !n.read).length;
+        notificationBadge.textContent = unread;
+        notificationBadge.style.display = unread ? 'inline-flex' : 'none';
+        notificationGroups.innerHTML = '';
+        groups.forEach((group) => {
+            const section = document.createElement('div');
+            section.className = 'group-card';
+            section.innerHTML = `<h3>${group}</h3>`;
+            notifications.filter(n => n.group === group).forEach((n) => {
+                const row = createRow({
+                    title: n.title,
+                    subtitle: formatDate(n.time)
+                });
+                row.classList.add('notification-item');
+                row.classList.toggle('unread', !n.read);
+                row.addEventListener('click', () => {
+                    n.read = !n.read;
+                    renderNotifications();
+                    saveUiState();
+                });
+                section.appendChild(row);
+            });
+            notificationGroups.appendChild(section);
+        });
+    }
+
+    function renderSettings() {
+        settingsContent.innerHTML = '';
+        const sections = [
+            { title: 'Theme', rows: () => ['dark','light','system'].map((v) => createRow({ title: v[0].toUpperCase()+v.slice(1), subtitle: themePreference === v ? 'Selected' : '', onClick: () => { themePreference = v; isDarkTheme = v === 'dark'; applyTheme(); renderSettings(); } })) },
+            { title: 'Playback preferences', rows: () => [createRow({ title: 'Autoplay next video', trailing: createToggle('playbackAutoplay') }), createRow({ title: 'Inline playback', trailing: createToggle('playbackInline') })] },
+            { title: 'Download/storage management', rows: () => [createRow({ title: 'Download on Wi-Fi only', trailing: createToggle('downloadsWifiOnly') }), createRow({ title: `Storage limit (${settingsState.storageLimitGb} GB)`, subtitle: 'Tap to cycle', onClick: () => { settingsState.storageLimitGb = settingsState.storageLimitGb >= 20 ? 5 : settingsState.storageLimitGb + 5; saveUiState(); renderSettings(); } }), createRow({ title: 'Auto-delete watched downloads', trailing: createToggle('downloadsAutoDelete') })] },
+            { title: 'Privacy/account basics', rows: () => [createRow({ title: 'Save watch history', trailing: createToggle('privacyWatchHistory') }), createRow({ title: 'Personalized ads', trailing: createToggle('privacyPersonalizedAds') }), createRow({ title: 'Account email', subtitle: 'user@klipik.app' })] }
+        ];
+        sections.forEach((sec) => {
+            const wrap = document.createElement('div');
+            wrap.className = 'group-card';
+            wrap.innerHTML = `<h3>${sec.title}</h3>`;
+            sec.rows().forEach(r => wrap.appendChild(r));
+            settingsContent.appendChild(wrap);
+        });
     }
 
     function updateResultCount() {
@@ -818,6 +951,9 @@
     });
 
     document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+    tabLibrary.addEventListener('click', () => { setActiveScreen('library'); renderLibrary(); });
+    tabNotifications.addEventListener('click', () => { setActiveScreen('notifications'); renderNotifications(); });
+    tabSettings.addEventListener('click', () => { setActiveScreen('settings'); renderSettings(); });
     btnClosePlayer.addEventListener('click', closePlayer);
     btnPlayPause.addEventListener('click', togglePlayPause);
     videoContainer.addEventListener('click', (e) => {
@@ -976,8 +1112,12 @@
     // Initialization
     // ──────────────────────────────────────
     function init() {
+        loadUiState();
         loadTheme();
         loadVideosFromDB();
+        renderNotifications();
+        renderSettings();
+        setActiveScreen('library');
         updateMuteIcon();
         videoElement.volume = 1;
         volumeBar.value = 1;

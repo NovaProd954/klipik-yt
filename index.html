@@ -94,6 +94,13 @@
             </div>
         </section>
 
+
+        <div class="utility-tabs" id="utilityTabs">
+            <button class="utility-tab" id="tabLibrary" data-screen="library">Library</button>
+            <button class="utility-tab" id="tabNotifications" data-screen="notifications">Notifications <span class="tab-badge" id="notificationBadge">0</span></button>
+            <button class="utility-tab" id="tabSettings" data-screen="settings">Settings</button>
+        </div>
+
         <!-- Video Grid Section -->
         <div class="section-header">
             <h2 class="section-title" id="sectionTitle">Your Library</h2>
@@ -106,6 +113,21 @@
             <p>Upload your first video to get started. Click the Upload button or drag and drop a video file here.</p>
             <button class="btn btn-accent" id="emptyUploadBtn">Upload Video</button>
         </div>
+
+        <section class="notifications-screen" id="notificationsScreen" hidden>
+            <div class="section-header">
+                <h2 class="section-title">Notifications</h2>
+            </div>
+            <div id="notificationGroups"></div>
+        </section>
+
+        <section class="settings-screen" id="settingsScreen" hidden>
+            <div class="section-header">
+                <h2 class="section-title">Settings</h2>
+            </div>
+            <div id="settingsContent"></div>
+        </section>
+
     </main>
 
     <script src="script.js" defer></script>
