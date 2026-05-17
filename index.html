@@ -27,7 +27,7 @@
             </div>
         </div>
         <div class="navbar-center">
-            <input type="text" class="search-input" id="searchInput" placeholder="Search videos..." aria-label="Search videos">
+            <input type="text" class="search-input input-field" id="searchInput" placeholder="Search videos..." aria-label="Search videos">
             <button class="search-clear" id="searchClear" aria-label="Clear search" title="Clear">✕</button>
         </div>
         <div class="navbar-right">
@@ -35,11 +35,11 @@
                 <svg id="themeIconSun" viewBox="0 0 24 24" style="display:none;"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.06 1.06c.39.39 1.03.39 1.41 0a.996.996 0 000-1.41l-1.06-1.06zm1.06-10.96a.996.996 0 000-1.41.996.996 0 00-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36a.996.996 0 000-1.41.996.996 0 00-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/></svg>
                 <svg id="themeIconMoon" viewBox="0 0 24 24"><path d="M12 3a9 9 0 109 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 01-4.4 2.26 5.403 5.403 0 01-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>
             </button>
-            <button class="btn btn-accent" id="youtubeBtn" aria-label="Add YouTube video" title="Add YouTube video" style="background:#FF0000;">
+            <button class="btn btn-primary" id="youtubeBtn" aria-label="Add YouTube video" title="Add YouTube video" style="background:#FF0000;">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M10 15l5.19-3L10 9v6m11.56-7.83c.13.47.22 1.1.28 1.9.07.8.1 1.49.1 2.09L22 12c0 2.19-.16 3.8-.44 4.83-.25.9-.83 1.48-1.73 1.73-.47.13-1.33.22-2.65.28-1.3.07-2.49.1-3.59.1L12 19c-4.19 0-6.8-.16-7.83-.44-.9-.25-1.48-.83-1.73-1.73-.13-.47-.22-1.1-.28-1.9-.07-.8-.1-1.49-.1-2.09L2 12c0-2.19.16-3.8.44-4.83.25-.9.83-1.48 1.73-1.73.47-.13 1.33-.22 2.65-.28 1.3-.07 2.49-.1 3.59-.1L12 5c4.19 0 6.8.16 7.83.44.9.25 1.48.83 1.73 1.73z"/></svg>
                 <span class="upload-btn-text">YouTube</span>
             </button>
-            <button class="btn btn-accent" id="uploadBtn" aria-label="Upload video">
+            <button class="btn btn-primary" id="uploadBtn" aria-label="Upload video">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
                 <span class="upload-btn-text">Upload</span>
             </button>
@@ -51,10 +51,10 @@
     <main class="main-container" id="mainContainer">
         <!-- Player Section -->
         <section class="player-section" id="playerSection">
-            <div class="player-wrapper">
+            <div class="player-wrapper ui-glass-card">
                 <div class="player-top-bar">
                     <span class="player-title" id="playerTitle">Video Title</span>
-                    <div class="player-meta">
+                    <div class="player-meta ui-profile-row">
                         <span id="playerViews">0 views</span>
                         <span id="playerDate"></span>
                     </div>
@@ -63,7 +63,7 @@
                             <svg viewBox="0 0 24 24"><path d="M14 9V5.5C14 4.12 12.88 3 11.5 3S9 4.12 9 5.5V9H4.17C3.25 9 2.58 9.85 2.83 10.75l1.72 6.5C4.83 18.23 5.76 19 6.83 19H16c1.1 0 2-.9 2-2v-6.5c0-.83-.67-1.5-1.5-1.5H14z"/></svg>
                             <span id="likeCount">0</span>
                         </button>
-                        <button class="btn-close-player" id="btnClosePlayer" aria-label="Close player" title="Close player">✕</button>
+                        <button class="btn-close-player btn btn-icon btn-ghost" id="btnClosePlayer" aria-label="Close player" title="Close player">✕</button>
                     </div>
                 </div>
                 <div class="video-container" id="videoContainer">
@@ -95,16 +95,16 @@
         </section>
 
         <!-- Video Grid Section -->
-        <div class="section-header">
+        <div class="section-header ui-section-header">
             <h2 class="section-title" id="sectionTitle">Your Library</h2>
-            <span class="result-count" id="resultCount"></span>
+            <span class="result-count ui-chip" id="resultCount"></span>
         </div>
         <div class="video-grid" id="videoGrid"></div>
         <div class="empty-state" id="emptyState">
             <svg viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14zM9 8h6v2H9V8zm0 4h6v2H9v-2z"/></svg>
             <h3>No videos yet</h3>
             <p>Upload your first video to get started. Click the Upload button or drag and drop a video file here.</p>
-            <button class="btn btn-accent" id="emptyUploadBtn">Upload Video</button>
+            <button class="btn btn-primary" id="emptyUploadBtn">Upload Video</button>
         </div>
     </main>
 
