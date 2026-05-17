@@ -30,44 +30,81 @@
       <section class="view" data-view="settings"><h2>Settings</h2><div class="state state-loading">Loading settings…</div><div class="state state-empty">No settings available.</div><div class="state state-error">Settings failed to load.</div></section>
     </main>
 
-    <nav class="mobile-tab-bar" id="mobileTabBar" aria-label="Primary">
-      <button data-mobile-view="home">Home</button>
-      <button data-mobile-view="shorts">Shorts</button>
-      <button data-mobile-view="upload">Create</button>
-      <button data-mobile-view="subscriptions">Subscriptions</button>
-      <button data-mobile-view="library">Library</button>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="navbar-left">
+            <div class="navbar-logo" id="logoBtn" title="Home">
+                <img src="assets/klipik1.png" alt="Klipik Logo" class="logo-img">
+                <span>Klipik</span>
+            </div>
+        </div>
+        <div class="navbar-center">
+            <input type="text" class="search-input" id="searchInput" placeholder="Search videos..." aria-label="Search videos">
+            <button class="search-clear" id="searchClear" aria-label="Clear search" title="Clear">✕</button>
+        </div>
+        <div class="navbar-right">
+            <button class="btn btn-ghost" id="libraryViewBtn" aria-label="Library">Library</button>
+            <button class="btn btn-ghost" id="settingsViewBtn" aria-label="Settings">Settings</button>
+            <button class="btn btn-ghost" id="logoutBtn" aria-label="Log out" style="display:none;">Log out</button>
+            <button class="btn-icon" id="themeToggle" aria-label="Toggle theme" title="Toggle light/dark mode">
+                <svg id="themeIconSun" viewBox="0 0 24 24" style="display:none;"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.06 1.06c.39.39 1.03.39 1.41 0a.996.996 0 000-1.41l-1.06-1.06zm1.06-10.96a.996.996 0 000-1.41.996.996 0 00-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36a.996.996 0 000-1.41.996.996 0 00-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/></svg>
+                <svg id="themeIconMoon" viewBox="0 0 24 24"><path d="M12 3a9 9 0 109 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 01-4.4 2.26 5.403 5.403 0 01-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>
+            </button>
+            <button class="btn btn-accent" id="youtubeBtn" aria-label="Add YouTube video" title="Add YouTube video" style="background:#FF0000;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M10 15l5.19-3L10 9v6m11.56-7.83c.13.47.22 1.1.28 1.9.07.8.1 1.49.1 2.09L22 12c0 2.19-.16 3.8-.44 4.83-.25.9-.83 1.48-1.73 1.73-.47.13-1.33.22-2.65.28-1.3.07-2.49.1-3.59.1L12 19c-4.19 0-6.8-.16-7.83-.44-.9-.25-1.48-.83-1.73-1.73-.13-.47-.22-1.1-.28-1.9-.07-.8-.1-1.49-.1-2.09L2 12c0-2.19.16-3.8.44-4.83.25-.9.83-1.48 1.73-1.73.47-.13 1.33-.22 2.65-.28 1.3-.07 2.49-.1 3.59-.1L12 5c4.19 0 6.8.16 7.83.44.9.25 1.48.83 1.73 1.73z"/></svg>
+                <span class="upload-btn-text">YouTube</span>
+            </button>
+            <button class="btn btn-accent" id="uploadBtn" aria-label="Upload video">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                <span class="upload-btn-text">Upload</span>
+            </button>
+        </div>
     </nav>
 
+    <!-- Auth & Onboarding -->
+    <section class="auth-shell" id="authShell">
+        <div class="onboarding-carousel" id="onboardingCarousel">
+            <article class="onboarding-step active" data-step="0"><h2>Welcome to Klipik</h2><p>Build your own private video space with fast uploads and distraction-free playback.</p></article>
+            <article class="onboarding-step" data-step="1"><h2>Curate your library</h2><p>Import local videos or add YouTube links and keep everything organized in one place.</p></article>
+            <article class="onboarding-step" data-step="2"><h2>Pick up where you left off</h2><p>Your sessions, likes, and themes stay saved on this device for a seamless return.</p></article>
+            <div class="onboarding-controls">
+                <button class="btn btn-ghost" id="onboardingPrevBtn">Back</button>
+                <div class="onboarding-dots" id="onboardingDots"></div>
+                <button class="btn btn-accent" id="onboardingNextBtn">Next</button>
+            </div>
+        </div>
+        <div class="auth-card-wrap">
+            <section class="auth-card" id="loginCard">
+                <h3>Sign in</h3>
+                <p>Access your uploads and library.</p>
+                <form id="loginForm" class="auth-form">
+                    <input type="email" id="loginEmail" placeholder="Email" required>
+                    <input type="password" id="loginPassword" placeholder="Password" required>
+                    <button class="btn btn-accent" type="submit">Log in</button>
+                </form>
+                <div class="social-row"><button class="btn btn-ghost" type="button">Continue with Google</button><button class="btn btn-ghost" type="button">Continue with Apple</button></div>
+                <button class="auth-switch" id="showSignupBtn" type="button">Need an account? Sign up</button>
+            </section>
+            <section class="auth-card" id="signupCard" style="display:none;">
+                <h3>Create account</h3>
+                <p>Start uploading in under a minute.</p>
+                <form id="signupForm" class="auth-form">
+                    <input type="text" id="signupName" placeholder="Display name" required>
+                    <input type="email" id="signupEmail" placeholder="Email" required>
+                    <input type="password" id="signupPassword" placeholder="Password" required>
+                    <button class="btn btn-accent" type="submit">Sign up</button>
+                </form>
+                <button class="auth-switch" id="showLoginBtn" type="button">Already have an account? Log in</button>
+            </section>
+        </div>
+    </section>
+
+    <section class="settings-view" id="settingsView" style="display:none;">
+        <div class="settings-card"><h2>Settings</h2><p>Account and preference controls are coming soon.</p></div>
+    </section>
+
     <!-- Main Content -->
-    <main class="main-container" id="mainContainer">
-        <section class="top-tabs" id="topTabs" aria-label="Main sections">
-            <button class="top-tab active" data-view="home">Home</button>
-            <button class="top-tab" data-view="shorts">Shorts</button>
-            <button class="top-tab" data-view="profile">Profile</button>
-        </section>
-
-        <section class="creator-profile hidden" id="creatorProfile">
-            <div class="creator-header">
-                <img class="creator-avatar" src="assets/klipik1.png" alt="Creator avatar">
-                <div class="creator-main">
-                    <h2 id="creatorName">Klipik Studio</h2>
-                    <p id="creatorBio">Video creator sharing uploads, highlights, and short-form moments.</p>
-                    <div class="creator-stats">
-                        <span id="creatorSubs">0 subscribers</span>
-                        <span>•</span>
-                        <span id="creatorVideos">0 videos</span>
-                    </div>
-                </div>
-                <button class="btn subscribe-btn" id="profileSubscribeBtn" data-creator-id="klipik-studio">Subscribe</button>
-            </div>
-            <div class="profile-tabs" id="profileTabs">
-                <button class="profile-tab active" data-profile-section="videos">Videos</button>
-                <button class="profile-tab" data-profile-section="shorts">Shorts</button>
-                <button class="profile-tab" data-profile-section="playlists">Playlists</button>
-                <button class="profile-tab" data-profile-section="about">About</button>
-            </div>
-        </section>
-
+    <main class="main-container protected-view" id="mainContainer" data-view="library">
         <!-- Player Section -->
         <section class="player-section" id="playerSection">
             <div class="player-wrapper">
