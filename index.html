@@ -38,25 +38,49 @@
       <button data-mobile-view="library">Library</button>
     </nav>
 
+        <!-- Shorts Section -->
+        <section class="shorts-section" id="shortsSection" aria-label="Shorts feed">
+            <div class="section-header shorts-header">
+                <h2 class="section-title">Shorts</h2>
+            </div>
+            <div class="shorts-stack" id="shortsStack">
+                <article class="short-card" data-short-id="short_1" tabindex="0">
+                    <video class="short-video" muted loop playsinline preload="metadata" poster="assets/klipik1.png">
+                        <source src="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4" type="video/mp4">
+                    </video>
+                    <div class="short-overlay">
+                        <a class="short-creator" href="https://www.youtube.com/@OpenAI" target="_blank" rel="noopener noreferrer" data-role="creator-link">@openai</a>
+                        <p class="short-caption">Quick visual test clip for Shorts playback.</p>
+                    </div>
+                    <div class="short-action-rail">
+                        <button class="short-action-btn" data-action="like" aria-label="Like short"><span>❤️</span><strong data-role="like-count">124</strong></button>
+                        <button class="short-action-btn" data-action="comment" aria-label="Comment on short"><span>💬</span><strong data-role="comment-count">16</strong></button>
+                        <button class="short-action-btn" data-action="share" aria-label="Share short"><span>↗</span><strong>Share</strong></button>
+                        <button class="short-action-btn" data-action="save" aria-label="Save short"><span>🔖</span><strong>Save</strong></button>
+                    </div>
+                </article>
+                <article class="short-card" data-short-id="short_2" tabindex="0">
+                    <video class="short-video" muted loop playsinline preload="metadata" poster="assets/klipik1.png">
+                        <source src="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.webm" type="video/webm">
+                    </video>
+                    <div class="short-overlay">
+                        <a class="short-creator" href="https://www.youtube.com/@GoogleDevelopers" target="_blank" rel="noopener noreferrer" data-role="creator-link">@googledevs</a>
+                        <p class="short-caption">Responsive card overlay with persistent actions.</p>
+                    </div>
+                    <div class="short-action-rail">
+                        <button class="short-action-btn" data-action="like" aria-label="Like short"><span>❤️</span><strong data-role="like-count">98</strong></button>
+                        <button class="short-action-btn" data-action="comment" aria-label="Comment on short"><span>💬</span><strong data-role="comment-count">8</strong></button>
+                        <button class="short-action-btn" data-action="share" aria-label="Share short"><span>↗</span><strong>Share</strong></button>
+                        <button class="short-action-btn" data-action="save" aria-label="Save short"><span>🔖</span><strong>Save</strong></button>
+                    </div>
+                </article>
+            </div>
+        </section>
+
         <!-- Video Grid Section -->
         <div class="section-header">
-            <h2 class="section-title" id="sectionTitle">Home</h2>
+            <h2 class="section-title" id="sectionTitle">Your Library</h2>
             <span class="result-count" id="resultCount"></span>
-        </div>
-        <div class="feed-controls" id="feedControls">
-            <div class="control-group">
-                <label for="feedModeSelect">Feed</label>
-                <select id="feedModeSelect" aria-label="Feed mode">
-                    <option value="for-you">For You</option>
-                    <option value="subscriptions">Subscriptions</option>
-                </select>
-            </div>
-            <div class="control-group">
-                <label for="categorySelect">Category</label>
-                <select id="categorySelect" aria-label="Category filter">
-                    <option value="all">All categories</option>
-                </select>
-            </div>
         </div>
         <div class="video-grid" id="videoGrid"></div>
         <div class="empty-state" id="emptyState">

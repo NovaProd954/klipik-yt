@@ -81,11 +81,6 @@
     let searchQuery = '';
     let isDarkTheme = true;
     let activeObjectURLs = new Map();
-    const FEED_PAGE_SIZE = 8;
-    const feedState = { mode: 'for-you', category: 'all', page: 0, cursor: 0, hasMore: true, loading: false, loadedIds: new Set() };
-    let displayedFeedVideos = [];
-    let loadSentinel = null;
-    let feedObserver = null;
 
     // ──────────────────────────────────────
     // DOM References
@@ -124,8 +119,7 @@
     const btnClosePlayer = $('#btnClosePlayer');
     const playerControls = $('#playerControls');
     const youtubePlayer = $('#youtubePlayer');
-    const feedModeSelect = $('#feedModeSelect');
-    const categorySelect = $('#categorySelect');
+    const shortsStack = $('#shortsStack');
 
     // ──────────────────────────────────────
     // Theme
@@ -601,96 +595,42 @@
     // ──────────────────────────────────────
     // Render Library
     // ──────────────────────────────────────
-    function ensureFeedDefaults(video) {
-        if (!video.category) video.category = video.type === 'youtube' ? 'education' : 'general';
-        if (typeof video.subscribed !== 'boolean') video.subscribed = video.type === 'youtube';
-    }
-
     function getFilteredVideos() {
+        if (!searchQuery.trim()) return videoList;
         const q = searchQuery.toLowerCase().trim();
-        return videoList.filter((v) => {
-            if (q && !v.title.toLowerCase().includes(q)) return false;
-            if (feedState.mode === 'subscriptions' && !v.subscribed) return false;
-            if (feedState.category !== 'all' && v.category !== feedState.category) return false;
-            return true;
-        });
-    }
-
-    function resetFeedPagination() {
-        feedState.page = 0;
-        feedState.cursor = 0;
-        feedState.hasMore = true;
-        feedState.loading = false;
-        feedState.loadedIds.clear();
-        displayedFeedVideos = [];
-    }
-
-    function ensureLoadSentinel() {
-        if (loadSentinel) return;
-        loadSentinel = document.createElement('div');
-        loadSentinel.className = 'feed-sentinel';
-        loadSentinel.textContent = 'Scroll to load more';
-        videoGrid.parentNode.insertBefore(loadSentinel, emptyState);
-        feedObserver = new IntersectionObserver((entries) => {
-            entries.forEach((entry) => {
-                if (entry.isIntersecting) loadNextFeedBatch();
-            });
-        }, { rootMargin: '160px 0px' });
-        feedObserver.observe(loadSentinel);
-    }
-
-    async function loadNextFeedBatch() {
-        if (feedState.loading || !feedState.hasMore) return;
-        const filtered = getFilteredVideos();
-        if (filtered.length === 0) {
-            loadSentinel.textContent = 'No videos found for this filter.';
-            feedState.hasMore = false;
-            renderLibrary();
-            return;
-        }
-        if (feedState.cursor >= filtered.length) {
-            feedState.hasMore = false;
-            loadSentinel.textContent = 'You reached the end of this feed.';
-            renderLibrary();
-            return;
-        }
-        feedState.loading = true;
-        loadSentinel.textContent = 'Loading more videos...';
-        const items = [];
-        for (let i = feedState.cursor; i < filtered.length && items.length < FEED_PAGE_SIZE; i++) {
-            const video = filtered[i];
-            if (feedState.loadedIds.has(video.id)) continue;
-            feedState.loadedIds.add(video.id);
-            items.push(video);
-            feedState.cursor = i + 1;
-        }
-        displayedFeedVideos.push(...items);
-        feedState.page += 1;
-        feedState.hasMore = feedState.cursor < filtered.length;
-        feedState.loading = false;
-        loadSentinel.textContent = feedState.hasMore ? 'Scroll to load more' : 'You reached the end of this feed.';
-        renderLibrary();
+        return videoList.filter(v => v.title.toLowerCase().includes(q));
     }
 
     function renderLibrary() {
-        ensureLoadSentinel();
         const filtered = getFilteredVideos();
         videoGrid.innerHTML = '';
-        if (filtered.length === 0) {
+        if (filtered.length === 0 && videoList.length === 0) {
             emptyState.style.display = '';
             videoGrid.style.display = 'none';
-            emptyState.querySelector('h3').textContent = 'No videos for this feed';
-            emptyState.querySelector('p').textContent = 'Try changing feed mode, category, or search text.';
-            resultCount.textContent = '0 videos';
-            sectionTitle.textContent = 'Home';
+            resultCount.textContent = '';
+            sectionTitle.textContent = 'Your Library';
+        } else if (filtered.length === 0 && videoList.length > 0) {
+            emptyState.style.display = '';
+            videoGrid.style.display = 'none';
+            emptyState.querySelector('h3').textContent = 'No matches';
+            emptyState.querySelector('p').textContent = 'Try a different search term.';
+            const uploadBtn = emptyState.querySelector('#emptyUploadBtn');
+            if (uploadBtn) uploadBtn.style.display = 'none';
+            resultCount.textContent = '0 of ' + videoList.length + ' videos';
+            sectionTitle.textContent = 'Search Results';
         } else {
             emptyState.style.display = 'none';
             videoGrid.style.display = '';
-            sectionTitle.textContent = feedState.mode === 'subscriptions' ? 'Home • Subscriptions' : (feedState.category === 'all' ? 'Home • For You' : 'Home • ' + feedState.category);
-            updateResultCount(filtered.length);
+            const uploadBtn = emptyState.querySelector('#emptyUploadBtn');
+            if (uploadBtn) uploadBtn.style.display = '';
+            emptyState.querySelector('h3').textContent = 'No videos yet';
+            emptyState.querySelector('p').textContent =
+                'Upload your first video to get started. Click the Upload button or drag and drop a video file here.';
+            sectionTitle.textContent = searchQuery.trim() ? 'Search Results' : 'Your Library';
+            updateResultCount();
         }
 
-        displayedFeedVideos.forEach(video => {
+        filtered.forEach(video => {
             const card = createVideoCard(video);
             videoGrid.appendChild(card);
         });
@@ -709,8 +649,17 @@
         }
     }
 
-    function updateResultCount(totalFiltered) {
-        resultCount.textContent = displayedFeedVideos.length + ' shown • ' + totalFiltered + ' total';
+    function updateResultCount() {
+        const filtered = getFilteredVideos();
+        if (videoList.length > 0) {
+            if (searchQuery.trim()) {
+                resultCount.textContent = filtered.length + ' of ' + videoList.length + ' videos';
+            } else {
+                resultCount.textContent = videoList.length + ' video' + (videoList.length !== 1 ? 's' : '');
+            }
+        } else {
+            resultCount.textContent = '';
+        }
     }
 
     function createVideoCard(video) {
@@ -792,6 +741,98 @@
         return card;
     }
 
+
+    function setupShortsController() {
+        if (!shortsStack) return;
+        const cards = Array.from(shortsStack.querySelectorAll('.short-card'));
+        const state = cards.map(card => ({
+            id: card.dataset.shortId,
+            likes: Number(card.querySelector('[data-role="like-count"]')?.textContent || 0),
+            comments: Number(card.querySelector('[data-role="comment-count"]')?.textContent || 0),
+            creatorHref: card.querySelector('[data-role="creator-link"]')?.href || '#'
+        }));
+        let activeIndex = 0;
+        let touchStartY = 0;
+
+        function syncCard(card, data) {
+            const likeEl = card.querySelector('[data-role="like-count"]');
+            const commentEl = card.querySelector('[data-role="comment-count"]');
+            const creatorEl = card.querySelector('[data-role="creator-link"]');
+            if (likeEl) likeEl.textContent = String(data.likes);
+            if (commentEl) commentEl.textContent = String(data.comments);
+            if (creatorEl) creatorEl.href = data.creatorHref;
+        }
+
+        function setActive(index) {
+            if (index < 0 || index >= cards.length) return;
+            activeIndex = index;
+            cards.forEach((card, i) => {
+                const vid = card.querySelector('.short-video');
+                if (!vid) return;
+                if (i === activeIndex) vid.play().catch(() => {});
+                else vid.pause();
+            });
+        }
+
+        function scrollToIndex(index) {
+            if (index < 0 || index >= cards.length) return;
+            cards[index].scrollIntoView({ behavior: 'smooth', block: 'start' });
+            setActive(index);
+        }
+
+        cards.forEach((card, index) => {
+            syncCard(card, state[index]);
+            card.addEventListener('click', (e) => {
+                const btn = e.target.closest('.short-action-btn');
+                if (!btn) return;
+                const action = btn.dataset.action;
+                if (action === 'like') state[index].likes += 1;
+                if (action === 'comment') state[index].comments += 1;
+                syncCard(card, state[index]);
+            });
+        });
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+                if (entry.isIntersecting && entry.intersectionRatio > 0.6) {
+                    const idx = cards.indexOf(entry.target);
+                    if (idx !== -1) setActive(idx);
+                }
+            });
+        }, { root: shortsStack, threshold: [0.6, 0.9] });
+
+        cards.forEach(card => observer.observe(card));
+
+        shortsStack.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            if (e.deltaY > 0) scrollToIndex(Math.min(cards.length - 1, activeIndex + 1));
+            else if (e.deltaY < 0) scrollToIndex(Math.max(0, activeIndex - 1));
+        }, { passive: false });
+
+        shortsStack.addEventListener('touchstart', (e) => {
+            touchStartY = e.changedTouches[0].clientY;
+        }, { passive: true });
+
+        shortsStack.addEventListener('touchend', (e) => {
+            const delta = touchStartY - e.changedTouches[0].clientY;
+            if (delta > 40) scrollToIndex(Math.min(cards.length - 1, activeIndex + 1));
+            else if (delta < -40) scrollToIndex(Math.max(0, activeIndex - 1));
+        }, { passive: true });
+
+        document.addEventListener('keydown', (e) => {
+            if (!shortsStack.matches(':hover') && !shortsStack.contains(document.activeElement)) return;
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                scrollToIndex(Math.min(cards.length - 1, activeIndex + 1));
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                scrollToIndex(Math.max(0, activeIndex - 1));
+            }
+        });
+
+        setActive(0);
+    }
+
     // ──────────────────────────────────────
     // Load from IndexedDB
     // ──────────────────────────────────────
@@ -839,23 +880,7 @@
             console.error('Failed to load videos from IndexedDB:', e);
             videoList = [];
         }
-        videoList.forEach(ensureFeedDefaults);
-        populateFilterControls();
-        resetFeedPagination();
-        await loadNextFeedBatch();
-    }
-
-    function populateFilterControls() {
-        const categories = Array.from(new Set(videoList.map(v => v.category))).sort();
-        categorySelect.innerHTML = '<option value="all">All categories</option>';
-        categories.forEach((cat) => {
-            const opt = document.createElement('option');
-            opt.value = cat;
-            opt.textContent = cat.charAt(0).toUpperCase() + cat.slice(1);
-            categorySelect.appendChild(opt);
-        });
-        feedModeSelect.value = feedState.mode;
-        categorySelect.value = categories.includes(feedState.category) ? feedState.category : 'all';
+        renderLibrary();
     }
 
     // ──────────────────────────────────────
@@ -873,11 +898,7 @@
         searchInput.value = '';
         searchQuery = '';
         searchClear.classList.remove('visible');
-        feedState.mode = 'for-you';
-        feedState.category = 'all';
-        populateFilterControls();
-        resetFeedPagination();
-        loadNextFeedBatch();
+        renderLibrary();
         window.scrollTo({ top: 0, behavior: 'smooth' });
     });
 
@@ -992,25 +1013,13 @@
         } else {
             searchClear.classList.remove('visible');
         }
-        resetFeedPagination();
-        loadNextFeedBatch();
-    });
-    feedModeSelect.addEventListener('change', () => {
-        feedState.mode = feedModeSelect.value;
-        resetFeedPagination();
-        loadNextFeedBatch();
-    });
-    categorySelect.addEventListener('change', () => {
-        feedState.category = categorySelect.value;
-        resetFeedPagination();
-        loadNextFeedBatch();
+        renderLibrary();
     });
     searchClear.addEventListener('click', () => {
         searchInput.value = '';
         searchQuery = '';
         searchClear.classList.remove('visible');
-        resetFeedPagination();
-        loadNextFeedBatch();
+        renderLibrary();
         searchInput.focus();
     });
 
@@ -1062,6 +1071,7 @@
     function init() {
         loadTheme();
         loadVideosFromDB();
+        setupShortsController();
         updateMuteIcon();
         videoElement.volume = 1;
         volumeBar.value = 1;
