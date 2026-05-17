@@ -38,9 +38,34 @@
       <button data-mobile-view="library">Library</button>
     </nav>
 
-    <div class="modal-host" id="modalHost" aria-live="assertive"></div>
-    <div class="toast-host" id="toastHost" aria-live="polite"></div>
-  </div>
+        <!-- Video Grid Section -->
+        <div class="section-header">
+            <h2 class="section-title" id="sectionTitle">Home</h2>
+            <span class="result-count" id="resultCount"></span>
+        </div>
+        <div class="feed-controls" id="feedControls">
+            <div class="control-group">
+                <label for="feedModeSelect">Feed</label>
+                <select id="feedModeSelect" aria-label="Feed mode">
+                    <option value="for-you">For You</option>
+                    <option value="subscriptions">Subscriptions</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="categorySelect">Category</label>
+                <select id="categorySelect" aria-label="Category filter">
+                    <option value="all">All categories</option>
+                </select>
+            </div>
+        </div>
+        <div class="video-grid" id="videoGrid"></div>
+        <div class="empty-state" id="emptyState">
+            <svg viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14zM9 8h6v2H9V8zm0 4h6v2H9v-2z"/></svg>
+            <h3>No videos yet</h3>
+            <p>Upload your first video to get started. Click the Upload button or drag and drop a video file here.</p>
+            <button class="btn btn-accent" id="emptyUploadBtn">Upload Video</button>
+        </div>
+    </main>
 
   <script src="script.js" defer></script>
 </body>
