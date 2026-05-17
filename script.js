@@ -619,13 +619,24 @@
     }
 
     function renderLibrary() {
-        const filtered = getFilteredVideos();
+        let filtered = getFilteredVideos();
+        if (currentView === 'shorts' || (currentView === 'profile' && currentProfileSection === 'shorts')) {
+            filtered = filtered.filter(v => /short/i.test(v.title));
+        } else if (currentView === 'profile' && (currentProfileSection === 'playlists' || currentProfileSection === 'about')) {
+            filtered = [];
+        }
+
+        creatorProfile.classList.toggle('hidden', currentView !== 'profile');
+        if (currentView === 'profile') {
+            creatorVideos.textContent = videoList.length + ' videos';
+            creatorSubs.textContent = (isSubscribed(CREATOR_ID) ? '1' : '0') + ' subscribers';
+        }
         videoGrid.innerHTML = '';
         if (filtered.length === 0 && videoList.length === 0) {
             emptyState.style.display = '';
             videoGrid.style.display = 'none';
             resultCount.textContent = '';
-            sectionTitle.textContent = 'Your Library';
+            sectionTitle.textContent = currentView === 'shorts' ? 'Shorts' : 'Your Library';
         } else if (filtered.length === 0 && videoList.length > 0) {
             emptyState.style.display = '';
             videoGrid.style.display = 'none';
@@ -634,7 +645,7 @@
             const uploadBtn = emptyState.querySelector('#emptyUploadBtn');
             if (uploadBtn) uploadBtn.style.display = 'none';
             resultCount.textContent = '0 of ' + videoList.length + ' videos';
-            sectionTitle.textContent = 'Search Results';
+            sectionTitle.textContent = currentView === 'profile' ? 'Creator Profile' : 'Search Results';
         } else {
             emptyState.style.display = 'none';
             videoGrid.style.display = '';
@@ -643,7 +654,9 @@
             emptyState.querySelector('h3').textContent = 'No videos yet';
             emptyState.querySelector('p').textContent =
                 'Upload your first video to get started. Click the Upload button or drag and drop a video file here.';
-            sectionTitle.textContent = searchQuery.trim() ? 'Search Results' : 'Your Library';
+            sectionTitle.textContent = currentView === 'profile'
+                ? ('Creator • ' + currentProfileSection[0].toUpperCase() + currentProfileSection.slice(1))
+                : (searchQuery.trim() ? 'Search Results' : (currentView === 'shorts' ? 'Shorts' : 'Your Library'));
             updateResultCount();
         }
 
@@ -664,6 +677,7 @@
                 playerViews.textContent = formatViews(cv.views);
             }
         }
+        updateSubscriptionUI();
     }
 
     function updateResultCount() {
@@ -726,8 +740,21 @@
         metaEl.className = 'card-meta';
         metaEl.innerHTML = '<span>' + formatViews(video.views || 0) +
             '</span><span>•</span><span>' + formatDate(video.timestamp) + '</span>';
+        const creatorEl = document.createElement('div');
+        creatorEl.className = 'card-meta';
+        creatorEl.textContent = CREATOR_NAME;
+        textDiv.appendChild(creatorEl);
         textDiv.appendChild(titleEl);
         textDiv.appendChild(metaEl);
+        const subBtn = document.createElement('button');
+        subBtn.className = 'card-subscribe-btn';
+        subBtn.setAttribute('data-creator-id', CREATOR_ID);
+        subBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleSubscription(CREATOR_ID);
+        });
+        textDiv.appendChild(subBtn);
         info.appendChild(textDiv);
 
         const actions = document.createElement('div');
@@ -756,6 +783,98 @@
         });
 
         return card;
+    }
+
+
+    function setupShortsController() {
+        if (!shortsStack) return;
+        const cards = Array.from(shortsStack.querySelectorAll('.short-card'));
+        const state = cards.map(card => ({
+            id: card.dataset.shortId,
+            likes: Number(card.querySelector('[data-role="like-count"]')?.textContent || 0),
+            comments: Number(card.querySelector('[data-role="comment-count"]')?.textContent || 0),
+            creatorHref: card.querySelector('[data-role="creator-link"]')?.href || '#'
+        }));
+        let activeIndex = 0;
+        let touchStartY = 0;
+
+        function syncCard(card, data) {
+            const likeEl = card.querySelector('[data-role="like-count"]');
+            const commentEl = card.querySelector('[data-role="comment-count"]');
+            const creatorEl = card.querySelector('[data-role="creator-link"]');
+            if (likeEl) likeEl.textContent = String(data.likes);
+            if (commentEl) commentEl.textContent = String(data.comments);
+            if (creatorEl) creatorEl.href = data.creatorHref;
+        }
+
+        function setActive(index) {
+            if (index < 0 || index >= cards.length) return;
+            activeIndex = index;
+            cards.forEach((card, i) => {
+                const vid = card.querySelector('.short-video');
+                if (!vid) return;
+                if (i === activeIndex) vid.play().catch(() => {});
+                else vid.pause();
+            });
+        }
+
+        function scrollToIndex(index) {
+            if (index < 0 || index >= cards.length) return;
+            cards[index].scrollIntoView({ behavior: 'smooth', block: 'start' });
+            setActive(index);
+        }
+
+        cards.forEach((card, index) => {
+            syncCard(card, state[index]);
+            card.addEventListener('click', (e) => {
+                const btn = e.target.closest('.short-action-btn');
+                if (!btn) return;
+                const action = btn.dataset.action;
+                if (action === 'like') state[index].likes += 1;
+                if (action === 'comment') state[index].comments += 1;
+                syncCard(card, state[index]);
+            });
+        });
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+                if (entry.isIntersecting && entry.intersectionRatio > 0.6) {
+                    const idx = cards.indexOf(entry.target);
+                    if (idx !== -1) setActive(idx);
+                }
+            });
+        }, { root: shortsStack, threshold: [0.6, 0.9] });
+
+        cards.forEach(card => observer.observe(card));
+
+        shortsStack.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            if (e.deltaY > 0) scrollToIndex(Math.min(cards.length - 1, activeIndex + 1));
+            else if (e.deltaY < 0) scrollToIndex(Math.max(0, activeIndex - 1));
+        }, { passive: false });
+
+        shortsStack.addEventListener('touchstart', (e) => {
+            touchStartY = e.changedTouches[0].clientY;
+        }, { passive: true });
+
+        shortsStack.addEventListener('touchend', (e) => {
+            const delta = touchStartY - e.changedTouches[0].clientY;
+            if (delta > 40) scrollToIndex(Math.min(cards.length - 1, activeIndex + 1));
+            else if (delta < -40) scrollToIndex(Math.max(0, activeIndex - 1));
+        }, { passive: true });
+
+        document.addEventListener('keydown', (e) => {
+            if (!shortsStack.matches(':hover') && !shortsStack.contains(document.activeElement)) return;
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                scrollToIndex(Math.min(cards.length - 1, activeIndex + 1));
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                scrollToIndex(Math.max(0, activeIndex - 1));
+            }
+        });
+
+        setActive(0);
     }
 
     // ──────────────────────────────────────
@@ -1084,4 +1203,24 @@
     }
 
     init();
+
+    topTabs.forEach((tab) => {
+        tab.addEventListener('click', () => {
+            topTabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            currentView = tab.getAttribute('data-view');
+            renderLibrary();
+        });
+    });
+
+    profileTabs.forEach((tab) => {
+        tab.addEventListener('click', () => {
+            profileTabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            currentProfileSection = tab.getAttribute('data-profile-section');
+            renderLibrary();
+        });
+    });
+
+    profileSubscribeBtn.addEventListener('click', () => toggleSubscription(CREATOR_ID));
 })(); 
