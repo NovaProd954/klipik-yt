@@ -81,6 +81,11 @@
     let searchQuery = '';
     let isDarkTheme = true;
     let activeObjectURLs = new Map();
+    const FEED_PAGE_SIZE = 8;
+    const feedState = { mode: 'for-you', category: 'all', page: 0, cursor: 0, hasMore: true, loading: false, loadedIds: new Set() };
+    let displayedFeedVideos = [];
+    let loadSentinel = null;
+    let feedObserver = null;
 
     // ──────────────────────────────────────
     // DOM References
@@ -119,6 +124,8 @@
     const btnClosePlayer = $('#btnClosePlayer');
     const playerControls = $('#playerControls');
     const youtubePlayer = $('#youtubePlayer');
+    const feedModeSelect = $('#feedModeSelect');
+    const categorySelect = $('#categorySelect');
 
     // ──────────────────────────────────────
     // Theme
@@ -594,42 +601,96 @@
     // ──────────────────────────────────────
     // Render Library
     // ──────────────────────────────────────
+    function ensureFeedDefaults(video) {
+        if (!video.category) video.category = video.type === 'youtube' ? 'education' : 'general';
+        if (typeof video.subscribed !== 'boolean') video.subscribed = video.type === 'youtube';
+    }
+
     function getFilteredVideos() {
-        if (!searchQuery.trim()) return videoList;
         const q = searchQuery.toLowerCase().trim();
-        return videoList.filter(v => v.title.toLowerCase().includes(q));
+        return videoList.filter((v) => {
+            if (q && !v.title.toLowerCase().includes(q)) return false;
+            if (feedState.mode === 'subscriptions' && !v.subscribed) return false;
+            if (feedState.category !== 'all' && v.category !== feedState.category) return false;
+            return true;
+        });
+    }
+
+    function resetFeedPagination() {
+        feedState.page = 0;
+        feedState.cursor = 0;
+        feedState.hasMore = true;
+        feedState.loading = false;
+        feedState.loadedIds.clear();
+        displayedFeedVideos = [];
+    }
+
+    function ensureLoadSentinel() {
+        if (loadSentinel) return;
+        loadSentinel = document.createElement('div');
+        loadSentinel.className = 'feed-sentinel';
+        loadSentinel.textContent = 'Scroll to load more';
+        videoGrid.parentNode.insertBefore(loadSentinel, emptyState);
+        feedObserver = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+                if (entry.isIntersecting) loadNextFeedBatch();
+            });
+        }, { rootMargin: '160px 0px' });
+        feedObserver.observe(loadSentinel);
+    }
+
+    async function loadNextFeedBatch() {
+        if (feedState.loading || !feedState.hasMore) return;
+        const filtered = getFilteredVideos();
+        if (filtered.length === 0) {
+            loadSentinel.textContent = 'No videos found for this filter.';
+            feedState.hasMore = false;
+            renderLibrary();
+            return;
+        }
+        if (feedState.cursor >= filtered.length) {
+            feedState.hasMore = false;
+            loadSentinel.textContent = 'You reached the end of this feed.';
+            renderLibrary();
+            return;
+        }
+        feedState.loading = true;
+        loadSentinel.textContent = 'Loading more videos...';
+        const items = [];
+        for (let i = feedState.cursor; i < filtered.length && items.length < FEED_PAGE_SIZE; i++) {
+            const video = filtered[i];
+            if (feedState.loadedIds.has(video.id)) continue;
+            feedState.loadedIds.add(video.id);
+            items.push(video);
+            feedState.cursor = i + 1;
+        }
+        displayedFeedVideos.push(...items);
+        feedState.page += 1;
+        feedState.hasMore = feedState.cursor < filtered.length;
+        feedState.loading = false;
+        loadSentinel.textContent = feedState.hasMore ? 'Scroll to load more' : 'You reached the end of this feed.';
+        renderLibrary();
     }
 
     function renderLibrary() {
+        ensureLoadSentinel();
         const filtered = getFilteredVideos();
         videoGrid.innerHTML = '';
-        if (filtered.length === 0 && videoList.length === 0) {
+        if (filtered.length === 0) {
             emptyState.style.display = '';
             videoGrid.style.display = 'none';
-            resultCount.textContent = '';
-            sectionTitle.textContent = 'Your Library';
-        } else if (filtered.length === 0 && videoList.length > 0) {
-            emptyState.style.display = '';
-            videoGrid.style.display = 'none';
-            emptyState.querySelector('h3').textContent = 'No matches';
-            emptyState.querySelector('p').textContent = 'Try a different search term.';
-            const uploadBtn = emptyState.querySelector('#emptyUploadBtn');
-            if (uploadBtn) uploadBtn.style.display = 'none';
-            resultCount.textContent = '0 of ' + videoList.length + ' videos';
-            sectionTitle.textContent = 'Search Results';
+            emptyState.querySelector('h3').textContent = 'No videos for this feed';
+            emptyState.querySelector('p').textContent = 'Try changing feed mode, category, or search text.';
+            resultCount.textContent = '0 videos';
+            sectionTitle.textContent = 'Home';
         } else {
             emptyState.style.display = 'none';
             videoGrid.style.display = '';
-            const uploadBtn = emptyState.querySelector('#emptyUploadBtn');
-            if (uploadBtn) uploadBtn.style.display = '';
-            emptyState.querySelector('h3').textContent = 'No videos yet';
-            emptyState.querySelector('p').textContent =
-                'Upload your first video to get started. Click the Upload button or drag and drop a video file here.';
-            sectionTitle.textContent = searchQuery.trim() ? 'Search Results' : 'Your Library';
-            updateResultCount();
+            sectionTitle.textContent = feedState.mode === 'subscriptions' ? 'Home • Subscriptions' : (feedState.category === 'all' ? 'Home • For You' : 'Home • ' + feedState.category);
+            updateResultCount(filtered.length);
         }
 
-        filtered.forEach(video => {
+        displayedFeedVideos.forEach(video => {
             const card = createVideoCard(video);
             videoGrid.appendChild(card);
         });
@@ -648,17 +709,8 @@
         }
     }
 
-    function updateResultCount() {
-        const filtered = getFilteredVideos();
-        if (videoList.length > 0) {
-            if (searchQuery.trim()) {
-                resultCount.textContent = filtered.length + ' of ' + videoList.length + ' videos';
-            } else {
-                resultCount.textContent = videoList.length + ' video' + (videoList.length !== 1 ? 's' : '');
-            }
-        } else {
-            resultCount.textContent = '';
-        }
+    function updateResultCount(totalFiltered) {
+        resultCount.textContent = displayedFeedVideos.length + ' shown • ' + totalFiltered + ' total';
     }
 
     function createVideoCard(video) {
@@ -787,7 +839,23 @@
             console.error('Failed to load videos from IndexedDB:', e);
             videoList = [];
         }
-        renderLibrary();
+        videoList.forEach(ensureFeedDefaults);
+        populateFilterControls();
+        resetFeedPagination();
+        await loadNextFeedBatch();
+    }
+
+    function populateFilterControls() {
+        const categories = Array.from(new Set(videoList.map(v => v.category))).sort();
+        categorySelect.innerHTML = '<option value="all">All categories</option>';
+        categories.forEach((cat) => {
+            const opt = document.createElement('option');
+            opt.value = cat;
+            opt.textContent = cat.charAt(0).toUpperCase() + cat.slice(1);
+            categorySelect.appendChild(opt);
+        });
+        feedModeSelect.value = feedState.mode;
+        categorySelect.value = categories.includes(feedState.category) ? feedState.category : 'all';
     }
 
     // ──────────────────────────────────────
@@ -805,7 +873,11 @@
         searchInput.value = '';
         searchQuery = '';
         searchClear.classList.remove('visible');
-        renderLibrary();
+        feedState.mode = 'for-you';
+        feedState.category = 'all';
+        populateFilterControls();
+        resetFeedPagination();
+        loadNextFeedBatch();
         window.scrollTo({ top: 0, behavior: 'smooth' });
     });
 
@@ -920,13 +992,25 @@
         } else {
             searchClear.classList.remove('visible');
         }
-        renderLibrary();
+        resetFeedPagination();
+        loadNextFeedBatch();
+    });
+    feedModeSelect.addEventListener('change', () => {
+        feedState.mode = feedModeSelect.value;
+        resetFeedPagination();
+        loadNextFeedBatch();
+    });
+    categorySelect.addEventListener('change', () => {
+        feedState.category = categorySelect.value;
+        resetFeedPagination();
+        loadNextFeedBatch();
     });
     searchClear.addEventListener('click', () => {
         searchInput.value = '';
         searchQuery = '';
         searchClear.classList.remove('visible');
-        renderLibrary();
+        resetFeedPagination();
+        loadNextFeedBatch();
         searchInput.focus();
     });
 
