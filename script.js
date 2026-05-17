@@ -81,6 +81,11 @@
     let searchQuery = '';
     let isDarkTheme = true;
     let activeObjectURLs = new Map();
+    let currentView = 'home';
+    let currentProfileSection = 'videos';
+    const CREATOR_ID = 'klipik-studio';
+    const CREATOR_NAME = 'Klipik Studio';
+    let subscribedCreators = new Set();
 
     // ──────────────────────────────────────
     // DOM References
@@ -119,6 +124,50 @@
     const btnClosePlayer = $('#btnClosePlayer');
     const playerControls = $('#playerControls');
     const youtubePlayer = $('#youtubePlayer');
+    const topTabs = document.querySelectorAll('.top-tab');
+    const creatorProfile = $('#creatorProfile');
+    const creatorVideos = $('#creatorVideos');
+    const creatorSubs = $('#creatorSubs');
+    const profileTabs = document.querySelectorAll('.profile-tab');
+    const profileSubscribeBtn = $('#profileSubscribeBtn');
+
+    function loadSubscriptionState() {
+        try {
+            const saved = JSON.parse(localStorage.getItem('klipik_subscriptions') || '[]');
+            subscribedCreators = new Set(Array.isArray(saved) ? saved : []);
+        } catch (e) {
+            subscribedCreators = new Set();
+        }
+    }
+
+    function persistSubscriptionState() {
+        try { localStorage.setItem('klipik_subscriptions', JSON.stringify(Array.from(subscribedCreators))); } catch (e) {}
+    }
+
+    function isSubscribed(creatorId) {
+        return subscribedCreators.has(creatorId);
+    }
+
+    function toggleSubscription(creatorId) {
+        if (subscribedCreators.has(creatorId)) subscribedCreators.delete(creatorId);
+        else subscribedCreators.add(creatorId);
+        persistSubscriptionState();
+        updateSubscriptionUI();
+    }
+
+    function updateSubscriptionButton(btn, creatorId) {
+        if (!btn) return;
+        const subscribed = isSubscribed(creatorId);
+        btn.classList.toggle('subscribed', subscribed);
+        btn.textContent = subscribed ? 'Subscribed' : 'Subscribe';
+        btn.setAttribute('aria-pressed', subscribed ? 'true' : 'false');
+    }
+
+    function updateSubscriptionUI() {
+        document.querySelectorAll('[data-creator-id]').forEach((btn) => {
+            updateSubscriptionButton(btn, btn.getAttribute('data-creator-id'));
+        });
+    }
 
     // ──────────────────────────────────────
     // Theme
@@ -601,13 +650,24 @@
     }
 
     function renderLibrary() {
-        const filtered = getFilteredVideos();
+        let filtered = getFilteredVideos();
+        if (currentView === 'shorts' || (currentView === 'profile' && currentProfileSection === 'shorts')) {
+            filtered = filtered.filter(v => /short/i.test(v.title));
+        } else if (currentView === 'profile' && (currentProfileSection === 'playlists' || currentProfileSection === 'about')) {
+            filtered = [];
+        }
+
+        creatorProfile.classList.toggle('hidden', currentView !== 'profile');
+        if (currentView === 'profile') {
+            creatorVideos.textContent = videoList.length + ' videos';
+            creatorSubs.textContent = (isSubscribed(CREATOR_ID) ? '1' : '0') + ' subscribers';
+        }
         videoGrid.innerHTML = '';
         if (filtered.length === 0 && videoList.length === 0) {
             emptyState.style.display = '';
             videoGrid.style.display = 'none';
             resultCount.textContent = '';
-            sectionTitle.textContent = 'Your Library';
+            sectionTitle.textContent = currentView === 'shorts' ? 'Shorts' : 'Your Library';
         } else if (filtered.length === 0 && videoList.length > 0) {
             emptyState.style.display = '';
             videoGrid.style.display = 'none';
@@ -616,7 +676,7 @@
             const uploadBtn = emptyState.querySelector('#emptyUploadBtn');
             if (uploadBtn) uploadBtn.style.display = 'none';
             resultCount.textContent = '0 of ' + videoList.length + ' videos';
-            sectionTitle.textContent = 'Search Results';
+            sectionTitle.textContent = currentView === 'profile' ? 'Creator Profile' : 'Search Results';
         } else {
             emptyState.style.display = 'none';
             videoGrid.style.display = '';
@@ -625,7 +685,9 @@
             emptyState.querySelector('h3').textContent = 'No videos yet';
             emptyState.querySelector('p').textContent =
                 'Upload your first video to get started. Click the Upload button or drag and drop a video file here.';
-            sectionTitle.textContent = searchQuery.trim() ? 'Search Results' : 'Your Library';
+            sectionTitle.textContent = currentView === 'profile'
+                ? ('Creator • ' + currentProfileSection[0].toUpperCase() + currentProfileSection.slice(1))
+                : (searchQuery.trim() ? 'Search Results' : (currentView === 'shorts' ? 'Shorts' : 'Your Library'));
             updateResultCount();
         }
 
@@ -646,6 +708,7 @@
                 playerViews.textContent = formatViews(cv.views);
             }
         }
+        updateSubscriptionUI();
     }
 
     function updateResultCount() {
@@ -708,8 +771,21 @@
         metaEl.className = 'card-meta';
         metaEl.innerHTML = '<span>' + formatViews(video.views || 0) +
             '</span><span>•</span><span>' + formatDate(video.timestamp) + '</span>';
+        const creatorEl = document.createElement('div');
+        creatorEl.className = 'card-meta';
+        creatorEl.textContent = CREATOR_NAME;
+        textDiv.appendChild(creatorEl);
         textDiv.appendChild(titleEl);
         textDiv.appendChild(metaEl);
+        const subBtn = document.createElement('button');
+        subBtn.className = 'card-subscribe-btn';
+        subBtn.setAttribute('data-creator-id', CREATOR_ID);
+        subBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleSubscription(CREATOR_ID);
+        });
+        textDiv.appendChild(subBtn);
         info.appendChild(textDiv);
 
         const actions = document.createElement('div');
@@ -977,6 +1053,7 @@
     // ──────────────────────────────────────
     function init() {
         loadTheme();
+        loadSubscriptionState();
         loadVideosFromDB();
         updateMuteIcon();
         videoElement.volume = 1;
@@ -984,4 +1061,24 @@
     }
 
     init();
+
+    topTabs.forEach((tab) => {
+        tab.addEventListener('click', () => {
+            topTabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            currentView = tab.getAttribute('data-view');
+            renderLibrary();
+        });
+    });
+
+    profileTabs.forEach((tab) => {
+        tab.addEventListener('click', () => {
+            profileTabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            currentProfileSection = tab.getAttribute('data-profile-section');
+            renderLibrary();
+        });
+    });
+
+    profileSubscribeBtn.addEventListener('click', () => toggleSubscription(CREATOR_ID));
 })(); 

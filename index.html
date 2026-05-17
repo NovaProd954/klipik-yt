@@ -49,6 +49,34 @@
 
     <!-- Main Content -->
     <main class="main-container" id="mainContainer">
+        <section class="top-tabs" id="topTabs" aria-label="Main sections">
+            <button class="top-tab active" data-view="home">Home</button>
+            <button class="top-tab" data-view="shorts">Shorts</button>
+            <button class="top-tab" data-view="profile">Profile</button>
+        </section>
+
+        <section class="creator-profile hidden" id="creatorProfile">
+            <div class="creator-header">
+                <img class="creator-avatar" src="assets/klipik1.png" alt="Creator avatar">
+                <div class="creator-main">
+                    <h2 id="creatorName">Klipik Studio</h2>
+                    <p id="creatorBio">Video creator sharing uploads, highlights, and short-form moments.</p>
+                    <div class="creator-stats">
+                        <span id="creatorSubs">0 subscribers</span>
+                        <span>•</span>
+                        <span id="creatorVideos">0 videos</span>
+                    </div>
+                </div>
+                <button class="btn subscribe-btn" id="profileSubscribeBtn" data-creator-id="klipik-studio">Subscribe</button>
+            </div>
+            <div class="profile-tabs" id="profileTabs">
+                <button class="profile-tab active" data-profile-section="videos">Videos</button>
+                <button class="profile-tab" data-profile-section="shorts">Shorts</button>
+                <button class="profile-tab" data-profile-section="playlists">Playlists</button>
+                <button class="profile-tab" data-profile-section="about">About</button>
+            </div>
+        </section>
+
         <!-- Player Section -->
         <section class="player-section" id="playerSection">
             <div class="player-wrapper">
