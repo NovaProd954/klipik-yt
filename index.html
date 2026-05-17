@@ -38,25 +38,44 @@
       <button data-mobile-view="library">Library</button>
     </nav>
 
-        <!-- Shorts Section -->
-        <section class="shorts-section" id="shortsSection" aria-label="Shorts feed">
-            <div class="section-header shorts-header">
-                <h2 class="section-title">Shorts</h2>
-            </div>
-            <div class="shorts-stack" id="shortsStack">
-                <article class="short-card" data-short-id="short_1" tabindex="0">
-                    <video class="short-video" muted loop playsinline preload="metadata" poster="assets/klipik1.png">
-                        <source src="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4" type="video/mp4">
-                    </video>
-                    <div class="short-overlay">
-                        <a class="short-creator" href="https://www.youtube.com/@OpenAI" target="_blank" rel="noopener noreferrer" data-role="creator-link">@openai</a>
-                        <p class="short-caption">Quick visual test clip for Shorts playback.</p>
+    <!-- Main Content -->
+    <main class="main-container" id="mainContainer">
+        <section class="top-tabs" id="topTabs" aria-label="Main sections">
+            <button class="top-tab active" data-view="home">Home</button>
+            <button class="top-tab" data-view="shorts">Shorts</button>
+            <button class="top-tab" data-view="profile">Profile</button>
+        </section>
+
+        <section class="creator-profile hidden" id="creatorProfile">
+            <div class="creator-header">
+                <img class="creator-avatar" src="assets/klipik1.png" alt="Creator avatar">
+                <div class="creator-main">
+                    <h2 id="creatorName">Klipik Studio</h2>
+                    <p id="creatorBio">Video creator sharing uploads, highlights, and short-form moments.</p>
+                    <div class="creator-stats">
+                        <span id="creatorSubs">0 subscribers</span>
+                        <span>•</span>
+                        <span id="creatorVideos">0 videos</span>
                     </div>
-                    <div class="short-action-rail">
-                        <button class="short-action-btn" data-action="like" aria-label="Like short"><span>❤️</span><strong data-role="like-count">124</strong></button>
-                        <button class="short-action-btn" data-action="comment" aria-label="Comment on short"><span>💬</span><strong data-role="comment-count">16</strong></button>
-                        <button class="short-action-btn" data-action="share" aria-label="Share short"><span>↗</span><strong>Share</strong></button>
-                        <button class="short-action-btn" data-action="save" aria-label="Save short"><span>🔖</span><strong>Save</strong></button>
+                </div>
+                <button class="btn subscribe-btn" id="profileSubscribeBtn" data-creator-id="klipik-studio">Subscribe</button>
+            </div>
+            <div class="profile-tabs" id="profileTabs">
+                <button class="profile-tab active" data-profile-section="videos">Videos</button>
+                <button class="profile-tab" data-profile-section="shorts">Shorts</button>
+                <button class="profile-tab" data-profile-section="playlists">Playlists</button>
+                <button class="profile-tab" data-profile-section="about">About</button>
+            </div>
+        </section>
+
+        <!-- Player Section -->
+        <section class="player-section" id="playerSection">
+            <div class="player-wrapper">
+                <div class="player-top-bar">
+                    <span class="player-title" id="playerTitle">Video Title</span>
+                    <div class="player-meta">
+                        <span id="playerViews">0 views</span>
+                        <span id="playerDate"></span>
                     </div>
                 </article>
                 <article class="short-card" data-short-id="short_2" tabindex="0">
