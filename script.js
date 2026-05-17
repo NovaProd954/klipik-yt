@@ -119,6 +119,7 @@
     const btnClosePlayer = $('#btnClosePlayer');
     const playerControls = $('#playerControls');
     const youtubePlayer = $('#youtubePlayer');
+    const shortsStack = $('#shortsStack');
 
     // ──────────────────────────────────────
     // Theme
@@ -740,6 +741,98 @@
         return card;
     }
 
+
+    function setupShortsController() {
+        if (!shortsStack) return;
+        const cards = Array.from(shortsStack.querySelectorAll('.short-card'));
+        const state = cards.map(card => ({
+            id: card.dataset.shortId,
+            likes: Number(card.querySelector('[data-role="like-count"]')?.textContent || 0),
+            comments: Number(card.querySelector('[data-role="comment-count"]')?.textContent || 0),
+            creatorHref: card.querySelector('[data-role="creator-link"]')?.href || '#'
+        }));
+        let activeIndex = 0;
+        let touchStartY = 0;
+
+        function syncCard(card, data) {
+            const likeEl = card.querySelector('[data-role="like-count"]');
+            const commentEl = card.querySelector('[data-role="comment-count"]');
+            const creatorEl = card.querySelector('[data-role="creator-link"]');
+            if (likeEl) likeEl.textContent = String(data.likes);
+            if (commentEl) commentEl.textContent = String(data.comments);
+            if (creatorEl) creatorEl.href = data.creatorHref;
+        }
+
+        function setActive(index) {
+            if (index < 0 || index >= cards.length) return;
+            activeIndex = index;
+            cards.forEach((card, i) => {
+                const vid = card.querySelector('.short-video');
+                if (!vid) return;
+                if (i === activeIndex) vid.play().catch(() => {});
+                else vid.pause();
+            });
+        }
+
+        function scrollToIndex(index) {
+            if (index < 0 || index >= cards.length) return;
+            cards[index].scrollIntoView({ behavior: 'smooth', block: 'start' });
+            setActive(index);
+        }
+
+        cards.forEach((card, index) => {
+            syncCard(card, state[index]);
+            card.addEventListener('click', (e) => {
+                const btn = e.target.closest('.short-action-btn');
+                if (!btn) return;
+                const action = btn.dataset.action;
+                if (action === 'like') state[index].likes += 1;
+                if (action === 'comment') state[index].comments += 1;
+                syncCard(card, state[index]);
+            });
+        });
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+                if (entry.isIntersecting && entry.intersectionRatio > 0.6) {
+                    const idx = cards.indexOf(entry.target);
+                    if (idx !== -1) setActive(idx);
+                }
+            });
+        }, { root: shortsStack, threshold: [0.6, 0.9] });
+
+        cards.forEach(card => observer.observe(card));
+
+        shortsStack.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            if (e.deltaY > 0) scrollToIndex(Math.min(cards.length - 1, activeIndex + 1));
+            else if (e.deltaY < 0) scrollToIndex(Math.max(0, activeIndex - 1));
+        }, { passive: false });
+
+        shortsStack.addEventListener('touchstart', (e) => {
+            touchStartY = e.changedTouches[0].clientY;
+        }, { passive: true });
+
+        shortsStack.addEventListener('touchend', (e) => {
+            const delta = touchStartY - e.changedTouches[0].clientY;
+            if (delta > 40) scrollToIndex(Math.min(cards.length - 1, activeIndex + 1));
+            else if (delta < -40) scrollToIndex(Math.max(0, activeIndex - 1));
+        }, { passive: true });
+
+        document.addEventListener('keydown', (e) => {
+            if (!shortsStack.matches(':hover') && !shortsStack.contains(document.activeElement)) return;
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                scrollToIndex(Math.min(cards.length - 1, activeIndex + 1));
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                scrollToIndex(Math.max(0, activeIndex - 1));
+            }
+        });
+
+        setActive(0);
+    }
+
     // ──────────────────────────────────────
     // Load from IndexedDB
     // ──────────────────────────────────────
@@ -978,6 +1071,7 @@
     function init() {
         loadTheme();
         loadVideosFromDB();
+        setupShortsController();
         updateMuteIcon();
         videoElement.volume = 1;
         volumeBar.value = 1;

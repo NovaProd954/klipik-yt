@@ -767,3 +767,84 @@ body {
     background: #cc0000;
     box-shadow: 0 4px 12px rgba(255, 0, 0, 0.35);
       } 
+
+/* Shorts */
+.shorts-section {
+    margin: 20px auto 12px;
+    width: min(100%, 680px);
+}
+.shorts-header { margin-bottom: 10px; }
+.shorts-stack {
+    height: calc(100vh - var(--navbar-height) - 36px);
+    max-height: 920px;
+    overflow-y: auto;
+    scroll-snap-type: y mandatory;
+    border-radius: var(--radius-lg);
+    position: relative;
+}
+.short-card {
+    position: relative;
+    min-height: calc(100vh - var(--navbar-height) - 36px);
+    max-height: 920px;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: #000;
+    margin-bottom: 10px;
+}
+.short-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.short-overlay {
+    position: absolute;
+    left: 14px;
+    right: 80px;
+    bottom: 16px;
+    z-index: 4;
+    color: #fff;
+    text-shadow: 0 2px 8px rgba(0,0,0,.6);
+}
+.short-creator { color: #fff; font-weight: 700; text-decoration: none; }
+.short-caption { margin-top: 8px; font-size: .92rem; }
+.short-action-rail {
+    position: absolute;
+    right: 10px;
+    bottom: 16px;
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.short-action-btn {
+    border: none;
+    background: rgba(0, 0, 0, 0.42);
+    color: #fff;
+    width: 58px;
+    min-height: 58px;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    cursor: pointer;
+    position: sticky;
+}
+.short-action-btn span { font-size: 1.05rem; }
+.short-action-btn strong { font-size: .72rem; }
+
+@media (max-width: 768px) {
+    .shorts-section { width: 100%; margin-top: 12px; }
+    .shorts-stack, .short-card {
+        height: calc(100vh - var(--navbar-height));
+        min-height: calc(100vh - var(--navbar-height));
+        max-height: none;
+        border-radius: 0;
+    }
+    .short-overlay { right: 72px; bottom: 20px; }
+    .short-action-rail { right: 8px; bottom: 20px; }
+}
