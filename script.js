@@ -81,6 +81,8 @@
     let searchQuery = '';
     let isDarkTheme = true;
     let activeObjectURLs = new Map();
+    let currentUser = null;
+    let currentView = 'library';
 
     // ──────────────────────────────────────
     // DOM References
@@ -119,6 +121,22 @@
     const btnClosePlayer = $('#btnClosePlayer');
     const playerControls = $('#playerControls');
     const youtubePlayer = $('#youtubePlayer');
+    const mainContainer = $('#mainContainer');
+    const authShell = $('#authShell');
+    const settingsView = $('#settingsView');
+    const libraryViewBtn = $('#libraryViewBtn');
+    const settingsViewBtn = $('#settingsViewBtn');
+    const logoutBtn = $('#logoutBtn');
+    const onboardingNextBtn = $('#onboardingNextBtn');
+    const onboardingPrevBtn = $('#onboardingPrevBtn');
+    const onboardingDots = $('#onboardingDots');
+    const showSignupBtn = $('#showSignupBtn');
+    const showLoginBtn = $('#showLoginBtn');
+    const loginCard = $('#loginCard');
+    const signupCard = $('#signupCard');
+    const loginForm = $('#loginForm');
+    const signupForm = $('#signupForm');
+
 
     // ──────────────────────────────────────
     // Theme
@@ -794,10 +812,12 @@
     // Event Listeners
     // ──────────────────────────────────────
     document.getElementById('uploadBtn').addEventListener('click', () => {
+        if (!ensureAuth('upload')) return;
         fileInput.click();
     });
     document.getElementById('youtubeBtn').addEventListener('click', addYouTubeVideo);
     document.getElementById('emptyUploadBtn').addEventListener('click', () => {
+        if (!ensureAuth('upload')) return;
         fileInput.click();
     });
     document.getElementById('logoBtn').addEventListener('click', () => {
@@ -972,15 +992,95 @@
         activeObjectURLs.clear();
     });
 
+
+    function persistSession() {
+        if (currentUser) localStorage.setItem('klipik_current_user', JSON.stringify(currentUser));
+        else localStorage.removeItem('klipik_current_user');
+    }
+
+    function ensureAuth(viewName = 'library') {
+        if (currentUser) return true;
+        authShell.style.display = '';
+        mainContainer.classList.add('locked');
+        settingsView.style.display = 'none';
+        showToast('Please log in to access ' + viewName + '.', 'error');
+        return false;
+    }
+
+    function setView(viewName) {
+        currentView = viewName;
+        const authed = ensureAuth(viewName);
+        if (!authed) return;
+        authShell.style.display = 'none';
+        mainContainer.classList.remove('locked');
+        settingsView.style.display = (viewName === 'settings') ? '' : 'none';
+        mainContainer.style.display = (viewName === 'library') ? '' : 'none';
+    }
+
+    function renderAuthState() {
+        const authed = !!currentUser;
+        logoutBtn.style.display = authed ? '' : 'none';
+        if (authed) {
+            authShell.style.display = 'none';
+            setView(currentView);
+        } else {
+            authShell.style.display = '';
+            mainContainer.classList.add('locked');
+            mainContainer.style.display = '';
+            settingsView.style.display = 'none';
+        }
+    }
+
+    function initOnboarding() {
+        const steps = Array.from(document.querySelectorAll('.onboarding-step'));
+        let idx = 0;
+        onboardingDots.innerHTML = steps.map((_, i) => `<span class="onboarding-dot ${i===0?'active':''}"></span>`).join('');
+        const dots = Array.from(onboardingDots.children);
+        function paint() {
+            steps.forEach((el, i) => el.classList.toggle('active', i === idx));
+            dots.forEach((el, i) => el.classList.toggle('active', i === idx));
+            onboardingPrevBtn.disabled = idx === 0;
+            onboardingNextBtn.textContent = idx === steps.length - 1 ? 'Done' : 'Next';
+        }
+        onboardingPrevBtn.addEventListener('click', () => { idx = Math.max(0, idx - 1); paint(); });
+        onboardingNextBtn.addEventListener('click', () => { idx = (idx + 1) % steps.length; paint(); });
+        paint();
+    }
+
     // ──────────────────────────────────────
     // Initialization
     // ──────────────────────────────────────
     function init() {
         loadTheme();
+        const savedUser = localStorage.getItem('klipik_current_user');
+        currentUser = savedUser ? JSON.parse(savedUser) : null;
         loadVideosFromDB();
+        initOnboarding();
+        renderAuthState();
         updateMuteIcon();
         videoElement.volume = 1;
         volumeBar.value = 1;
+
+        libraryViewBtn.addEventListener('click', () => setView('library'));
+        settingsViewBtn.addEventListener('click', () => setView('settings'));
+        logoutBtn.addEventListener('click', () => { currentUser = null; persistSession(); renderAuthState(); });
+
+        showSignupBtn.addEventListener('click', () => { loginCard.style.display = 'none'; signupCard.style.display = ''; });
+        showLoginBtn.addEventListener('click', () => { signupCard.style.display = 'none'; loginCard.style.display = ''; });
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            currentUser = { email: document.getElementById('loginEmail').value, name: 'Member' };
+            persistSession();
+            renderAuthState();
+            showToast('Welcome back!', 'success');
+        });
+        signupForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            currentUser = { email: document.getElementById('signupEmail').value, name: document.getElementById('signupName').value || 'Member' };
+            persistSession();
+            renderAuthState();
+            showToast('Account created.', 'success');
+        });
     }
 
     init();
