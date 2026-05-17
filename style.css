@@ -767,3 +767,15 @@ body {
     background: #cc0000;
     box-shadow: 0 4px 12px rgba(255, 0, 0, 0.35);
       } 
+
+.studio-modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;z-index:300;align-items:center;justify-content:center;padding:20px}
+.studio-modal.active{display:flex}
+.studio-panel{width:min(680px,100%);background:var(--bg-elevated);border:1px solid var(--border);border-radius:14px;display:flex;flex-direction:column;max-height:90vh}
+.studio-header,.studio-footer{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.studio-footer{border-bottom:none;border-top:1px solid var(--border)}
+.studio-body{padding:16px;overflow:auto;display:grid;gap:10px}
+.studio-body input,.studio-body textarea,.studio-body select{width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-tertiary);color:var(--text-primary)}
+.studio-body textarea{min-height:90px}
+.studio-progress{padding:8px 16px;color:var(--text-secondary);font-size:.9rem}
+#studioThumbPreview{width:100%;max-width:320px;aspect-ratio:16/9;object-fit:cover;border:1px solid var(--border);border-radius:8px;display:block}
+.studio-error{min-height:20px;color:#ff7272;font-size:.85rem}

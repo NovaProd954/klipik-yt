@@ -108,6 +108,52 @@
         </div>
     </main>
 
+
+    <div class="studio-modal" id="studioModal" aria-hidden="true">
+        <div class="studio-panel" role="dialog" aria-modal="true" aria-labelledby="studioTitle">
+            <div class="studio-header">
+                <h2 id="studioTitle">Upload Studio</h2>
+                <button class="btn-icon" id="studioCloseBtn" aria-label="Close upload studio">✕</button>
+            </div>
+            <div class="studio-progress" id="studioProgress"></div>
+            <div class="studio-body">
+                <section class="studio-step" data-step="1">
+                    <h3>1. File or link</h3>
+                    <input type="file" id="studioFileInput" accept="video/*,.mp4,.webm,.ogg,.mov,.mkv">
+                    <input type="url" id="studioLinkInput" placeholder="YouTube URL (optional)">
+                    <p class="studio-help">Choose exactly one source: local file or YouTube link.</p>
+                </section>
+                <section class="studio-step" data-step="2" hidden>
+                    <h3>2. Metadata</h3>
+                    <input type="text" id="studioTitleInput" placeholder="Title">
+                    <textarea id="studioDescriptionInput" placeholder="Description"></textarea>
+                    <input type="text" id="studioCategoryInput" placeholder="Category">
+                    <select id="studioVisibilityInput">
+                        <option value="private">Private</option>
+                        <option value="unlisted">Unlisted</option>
+                        <option value="public">Public</option>
+                    </select>
+                </section>
+                <section class="studio-step" data-step="3" hidden>
+                    <h3>3. Thumbnail</h3>
+                    <img id="studioThumbPreview" alt="Thumbnail preview">
+                    <button class="btn" id="studioGenerateThumbBtn" type="button">Generate thumbnail</button>
+                    <input type="file" id="studioThumbInput" accept="image/*">
+                </section>
+                <section class="studio-step" data-step="4" hidden>
+                    <h3>4. Publish</h3>
+                    <p id="studioConfirmText"></p>
+                    <label><input type="checkbox" id="studioPublishNow"> Publish now</label>
+                </section>
+                <div class="studio-error" id="studioError"></div>
+            </div>
+            <div class="studio-footer">
+                <button class="btn" id="studioBackBtn" type="button">Back</button>
+                <button class="btn btn-accent" id="studioNextBtn" type="button">Next</button>
+            </div>
+        </div>
+    </div>
+
     <script src="script.js" defer></script>
 </body>
   </html> 

@@ -81,6 +81,8 @@
     let searchQuery = '';
     let isDarkTheme = true;
     let activeObjectURLs = new Map();
+    let studioStep = 1;
+    let studioDraft = { sourceType: null, file: null, youtubeUrl: '', thumbnail: null, metadata: {} };
 
     // ──────────────────────────────────────
     // DOM References
@@ -119,6 +121,7 @@
     const btnClosePlayer = $('#btnClosePlayer');
     const playerControls = $('#playerControls');
     const youtubePlayer = $('#youtubePlayer');
+    const studioModal = $('#studioModal');
 
     // ──────────────────────────────────────
     // Theme
@@ -296,7 +299,18 @@
     // ──────────────────────────────────────
     // Video Upload (local)
     // ──────────────────────────────────────
-    async function handleFileUpload(file) {
+
+    function createVideoRecordBase(base) {
+        return Object.assign({
+            likes: 0,
+            views: 0,
+            liked: false,
+            status: 'draft',
+            metadata: { title: base.title || '', description: '', category: '', visibility: 'private' }
+        }, base);
+    }
+
+    async function handleFileUpload(file, studioData = null) {
         if (!file || !file.type.startsWith('video/')) {
             const ext = file ? file.name.split('.').pop().toLowerCase() : '';
             const videoExts = ['mp4', 'webm', 'ogg', 'mov', 'mkv', 'avi', 'm4v', '3gp'];
@@ -306,7 +320,8 @@
             }
         }
 
-        const title = file.name.replace(/\.[^.]+$/, '').replace(/[_-]/g, ' ').trim() || 'Untitled Video';
+        const inferredTitle = file.name.replace(/\.[^.]+$/, '').replace(/[_-]/g, ' ').trim() || 'Untitled Video';
+        const title = studioData?.metadata?.title || inferredTitle;
         const id = generateId();
         const timestamp = Date.now();
         const objectURL = URL.createObjectURL(file);
@@ -318,32 +333,14 @@
             thumbnail = await generateThumbnail(file);
         } catch (e) {}
 
-        const videoRecord = {
-            id: id,
-            type: 'local',
-            title: title,
-            timestamp: timestamp,
-            blob: file,
-            thumbnail: thumbnail,
-            likes: 0,
-            views: 0,
-            liked: false
-        };
+        const videoRecord = createVideoRecordBase({ id, type: 'local', title, timestamp, blob: file, thumbnail: studioData?.thumbnail || thumbnail });
+        if (studioData?.metadata) { videoRecord.metadata = studioData.metadata; videoRecord.status = studioData.publishNow ? 'published' : 'draft'; }
 
         try {
             await dbAddVideo(videoRecord);
             activeObjectURLs.set(id, objectURL);
-            const videoObj = {
-                id: id,
-                type: 'local',
-                title: title,
-                timestamp: timestamp,
-                url: objectURL,
-                thumbnail: thumbnail,
-                likes: 0,
-                views: 0,
-                liked: false
-            };
+            const videoObj = createVideoRecordBase({ id, type: 'local', title, timestamp, url: objectURL, thumbnail: videoRecord.thumbnail });
+            videoObj.metadata = videoRecord.metadata; videoObj.status = videoRecord.status;
             videoList.unshift(videoObj);
             renderLibrary();
             showToast('Video uploaded successfully!', 'success');
@@ -357,10 +354,13 @@
     // ──────────────────────────────────────
     // Add YouTube Video
     // ──────────────────────────────────────
-    async function addYouTubeVideo() {
-        let url = prompt('Enter YouTube video URL:');
-        if (!url) return;
-        url = url.trim();
+    async function addYouTubeVideo(urlFromStudio = null, studioData = null) {
+        let url = urlFromStudio;
+        if (!url) {
+            url = prompt('Enter YouTube video URL:');
+            if (!url) return;
+            url = url.trim();
+        }
         const videoId = extractYouTubeId(url);
         if (!videoId) {
             showToast('Invalid YouTube URL.', 'error');
@@ -373,32 +373,13 @@
             const id = generateId();
             const timestamp = Date.now();
 
-            const videoRecord = {
-                id: id,
-                type: 'youtube',
-                title: meta.title,
-                timestamp: timestamp,
-                youtubeId: videoId,
-                url: url,
-                thumbnail: meta.thumbnail,
-                likes: 0,
-                views: 0,
-                liked: false
-            };
+            const finalTitle = studioData?.metadata?.title || meta.title;
+            const videoRecord = createVideoRecordBase({ id, type: 'youtube', title: finalTitle, timestamp, youtubeId: videoId, url, thumbnail: studioData?.thumbnail || meta.thumbnail });
+            if (studioData?.metadata) { videoRecord.metadata = studioData.metadata; videoRecord.status = studioData.publishNow ? 'published' : 'draft'; }
 
             await dbAddVideo(videoRecord);
-            const videoObj = {
-                id: id,
-                type: 'youtube',
-                title: meta.title,
-                timestamp: timestamp,
-                youtubeId: videoId,
-                url: url,
-                thumbnail: meta.thumbnail,
-                likes: 0,
-                views: 0,
-                liked: false
-            };
+            const videoObj = createVideoRecordBase({ id, type: 'youtube', title: videoRecord.title, timestamp, youtubeId: videoId, url, thumbnail: videoRecord.thumbnail });
+            videoObj.metadata = videoRecord.metadata; videoObj.status = videoRecord.status;
             videoList.unshift(videoObj);
             renderLibrary();
             showToast('YouTube video added!', 'success');
@@ -707,7 +688,7 @@
         const metaEl = document.createElement('div');
         metaEl.className = 'card-meta';
         metaEl.innerHTML = '<span>' + formatViews(video.views || 0) +
-            '</span><span>•</span><span>' + formatDate(video.timestamp) + '</span>';
+            '</span><span>•</span><span>' + formatDate(video.timestamp) + '</span><span>•</span><span>' + (video.status || 'draft') + '</span>';
         textDiv.appendChild(titleEl);
         textDiv.appendChild(metaEl);
         info.appendChild(textDiv);
@@ -765,7 +746,9 @@
                         thumbnail: rec.thumbnail || null,
                         likes: rec.likes || 0,
                         views: rec.views || 0,
-                        liked: rec.liked || false
+                        liked: rec.liked || false,
+                        status: rec.status || 'draft',
+                        metadata: rec.metadata || { title: rec.title || '', description: '', category: '', visibility: 'private' }
                     });
                 } else {
                     const objectURL = URL.createObjectURL(rec.blob);
@@ -779,7 +762,9 @@
                         thumbnail: rec.thumbnail || null,
                         likes: rec.likes || 0,
                         views: rec.views || 0,
-                        liked: rec.liked || false
+                        liked: rec.liked || false,
+                        status: rec.status || 'draft',
+                        metadata: rec.metadata || { title: rec.title || '', description: '', category: '', visibility: 'private' }
                     });
                 }
             }
@@ -790,13 +775,38 @@
         renderLibrary();
     }
 
+
+    function openStudio() {
+        studioStep = 1;
+        studioDraft = { sourceType: null, file: null, youtubeUrl: '', thumbnail: null, metadata: { title: '', description: '', category: '', visibility: 'private' } };
+        $('#studioFileInput').value = ''; $('#studioLinkInput').value = ''; $('#studioError').textContent=''; $('#studioThumbPreview').removeAttribute('src');
+        studioModal.classList.add('active');
+        renderStudioStep();
+    }
+    function closeStudio() { studioModal.classList.remove('active'); }
+    function renderStudioStep() {
+        document.querySelectorAll('.studio-step').forEach(el => el.hidden = Number(el.dataset.step) !== studioStep);
+        $('#studioProgress').textContent = 'Step ' + studioStep + ' of 4';
+        $('#studioBackBtn').style.visibility = studioStep === 1 ? 'hidden' : 'visible';
+        $('#studioNextBtn').textContent = studioStep === 4 ? 'Finish' : 'Next';
+        if (studioStep===4) $('#studioConfirmText').textContent = `Ready to ${$('#studioPublishNow').checked ? 'publish' : 'save draft'}: ${studioDraft.metadata.title || 'Untitled'}`;
+    }
+    function validateStudioStep(){
+        const err=$('#studioError'); err.textContent='';
+        if(studioStep===1){ const file=$('#studioFileInput').files[0]; const link=$('#studioLinkInput').value.trim(); if((!file && !link) || (file&&link)){ err.textContent='Select either a file or a link.'; return false;} studioDraft.file=file||null; studioDraft.youtubeUrl=link; studioDraft.sourceType=file?'local':'youtube'; }
+        if(studioStep===2){ const t=$('#studioTitleInput').value.trim(); if(!t){err.textContent='Title is required.';return false;} studioDraft.metadata={ title:t, description:$('#studioDescriptionInput').value.trim(), category:$('#studioCategoryInput').value.trim(), visibility:$('#studioVisibilityInput').value}; }
+        return true;
+    }
+    async function finishStudio(){
+        if(studioDraft.sourceType==='local'){ await handleFileUpload(studioDraft.file, studioDraft); } else { await addYouTubeVideo(studioDraft.youtubeUrl, studioDraft); }
+        closeStudio();
+    }
+
     // ──────────────────────────────────────
     // Event Listeners
     // ──────────────────────────────────────
-    document.getElementById('uploadBtn').addEventListener('click', () => {
-        fileInput.click();
-    });
-    document.getElementById('youtubeBtn').addEventListener('click', addYouTubeVideo);
+    document.getElementById('uploadBtn').addEventListener('click', openStudio);
+    document.getElementById('youtubeBtn').addEventListener('click', openStudio);
     document.getElementById('emptyUploadBtn').addEventListener('click', () => {
         fileInput.click();
     });
@@ -985,3 +995,8 @@
 
     init();
 })(); 
+
+    $('#studioCloseBtn').addEventListener('click', closeStudio);
+    $('#studioBackBtn').addEventListener('click', () => { studioStep=Math.max(1,studioStep-1); renderStudioStep(); });
+    $('#studioNextBtn').addEventListener('click', async () => { if(!validateStudioStep()) return; if(studioStep===3){ const custom=$('#studioThumbInput').files[0]; if(custom){ studioDraft.thumbnail = await new Promise(r=>{const fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(custom);}); } if(!studioDraft.thumbnail && studioDraft.file){ studioDraft.thumbnail = await generateThumbnail(studioDraft.file); } } if(studioStep===4){ studioDraft.publishNow = $('#studioPublishNow').checked; await finishStudio(); return; } if(studioStep===1 && studioDraft.file){ $('#studioTitleInput').value = studioDraft.file.name.replace(/\.[^.]+$/, ''); } studioStep++; renderStudioStep(); });
+    $('#studioGenerateThumbBtn').addEventListener('click', async ()=>{ if(studioDraft.file){ studioDraft.thumbnail = await generateThumbnail(studioDraft.file); if(studioDraft.thumbnail) $('#studioThumbPreview').src=studioDraft.thumbnail; } });
