@@ -358,7 +358,18 @@
     // ──────────────────────────────────────
     // Video Upload (local)
     // ──────────────────────────────────────
-    async function handleFileUpload(file) {
+
+    function createVideoRecordBase(base) {
+        return Object.assign({
+            likes: 0,
+            views: 0,
+            liked: false,
+            status: 'draft',
+            metadata: { title: base.title || '', description: '', category: '', visibility: 'private' }
+        }, base);
+    }
+
+    async function handleFileUpload(file, studioData = null) {
         if (!file || !file.type.startsWith('video/')) {
             const ext = file ? file.name.split('.').pop().toLowerCase() : '';
             const videoExts = ['mp4', 'webm', 'ogg', 'mov', 'mkv', 'avi', 'm4v', '3gp'];
@@ -368,7 +379,8 @@
             }
         }
 
-        const title = file.name.replace(/\.[^.]+$/, '').replace(/[_-]/g, ' ').trim() || 'Untitled Video';
+        const inferredTitle = file.name.replace(/\.[^.]+$/, '').replace(/[_-]/g, ' ').trim() || 'Untitled Video';
+        const title = studioData?.metadata?.title || inferredTitle;
         const id = generateId();
         const timestamp = Date.now();
         const objectURL = URL.createObjectURL(file);
@@ -380,32 +392,14 @@
             thumbnail = await generateThumbnail(file);
         } catch (e) {}
 
-        const videoRecord = {
-            id: id,
-            type: 'local',
-            title: title,
-            timestamp: timestamp,
-            blob: file,
-            thumbnail: thumbnail,
-            likes: 0,
-            views: 0,
-            liked: false
-        };
+        const videoRecord = createVideoRecordBase({ id, type: 'local', title, timestamp, blob: file, thumbnail: studioData?.thumbnail || thumbnail });
+        if (studioData?.metadata) { videoRecord.metadata = studioData.metadata; videoRecord.status = studioData.publishNow ? 'published' : 'draft'; }
 
         try {
             await dbAddVideo(videoRecord);
             activeObjectURLs.set(id, objectURL);
-            const videoObj = {
-                id: id,
-                type: 'local',
-                title: title,
-                timestamp: timestamp,
-                url: objectURL,
-                thumbnail: thumbnail,
-                likes: 0,
-                views: 0,
-                liked: false
-            };
+            const videoObj = createVideoRecordBase({ id, type: 'local', title, timestamp, url: objectURL, thumbnail: videoRecord.thumbnail });
+            videoObj.metadata = videoRecord.metadata; videoObj.status = videoRecord.status;
             videoList.unshift(videoObj);
             renderLibrary();
             showToast('Video uploaded successfully!', 'success');
@@ -419,10 +413,13 @@
     // ──────────────────────────────────────
     // Add YouTube Video
     // ──────────────────────────────────────
-    async function addYouTubeVideo() {
-        let url = prompt('Enter YouTube video URL:');
-        if (!url) return;
-        url = url.trim();
+    async function addYouTubeVideo(urlFromStudio = null, studioData = null) {
+        let url = urlFromStudio;
+        if (!url) {
+            url = prompt('Enter YouTube video URL:');
+            if (!url) return;
+            url = url.trim();
+        }
         const videoId = extractYouTubeId(url);
         if (!videoId) {
             showToast('Invalid YouTube URL.', 'error');
@@ -435,32 +432,13 @@
             const id = generateId();
             const timestamp = Date.now();
 
-            const videoRecord = {
-                id: id,
-                type: 'youtube',
-                title: meta.title,
-                timestamp: timestamp,
-                youtubeId: videoId,
-                url: url,
-                thumbnail: meta.thumbnail,
-                likes: 0,
-                views: 0,
-                liked: false
-            };
+            const finalTitle = studioData?.metadata?.title || meta.title;
+            const videoRecord = createVideoRecordBase({ id, type: 'youtube', title: finalTitle, timestamp, youtubeId: videoId, url, thumbnail: studioData?.thumbnail || meta.thumbnail });
+            if (studioData?.metadata) { videoRecord.metadata = studioData.metadata; videoRecord.status = studioData.publishNow ? 'published' : 'draft'; }
 
             await dbAddVideo(videoRecord);
-            const videoObj = {
-                id: id,
-                type: 'youtube',
-                title: meta.title,
-                timestamp: timestamp,
-                youtubeId: videoId,
-                url: url,
-                thumbnail: meta.thumbnail,
-                likes: 0,
-                views: 0,
-                liked: false
-            };
+            const videoObj = createVideoRecordBase({ id, type: 'youtube', title: videoRecord.title, timestamp, youtubeId: videoId, url, thumbnail: videoRecord.thumbnail });
+            videoObj.metadata = videoRecord.metadata; videoObj.status = videoRecord.status;
             videoList.unshift(videoObj);
             renderLibrary();
             showToast('YouTube video added!', 'success');
@@ -670,7 +648,7 @@
             emptyState.style.display = '';
             videoGrid.style.display = 'none';
             resultCount.textContent = '';
-            sectionTitle.textContent = 'Your Library';
+            sectionTitle.textContent = currentView === 'shorts' ? 'Shorts' : 'Your Library';
         } else if (filtered.length === 0 && videoList.length > 0) {
             emptyState.style.display = '';
             videoGrid.style.display = 'none';
@@ -679,7 +657,7 @@
             const uploadBtn = emptyState.querySelector('#emptyUploadBtn');
             if (uploadBtn) uploadBtn.style.display = 'none';
             resultCount.textContent = '0 of ' + videoList.length + ' videos';
-            sectionTitle.textContent = 'Search Results';
+            sectionTitle.textContent = currentView === 'profile' ? 'Creator Profile' : 'Search Results';
         } else {
             emptyState.style.display = 'none';
             videoGrid.style.display = '';
@@ -688,7 +666,9 @@
             emptyState.querySelector('h3').textContent = 'No videos yet';
             emptyState.querySelector('p').textContent =
                 'Upload your first video to get started. Click the Upload button or drag and drop a video file here.';
-            sectionTitle.textContent = searchQuery.trim() ? 'Search Results' : 'Your Library';
+            sectionTitle.textContent = currentView === 'profile'
+                ? ('Creator • ' + currentProfileSection[0].toUpperCase() + currentProfileSection.slice(1))
+                : (searchQuery.trim() ? 'Search Results' : (currentView === 'shorts' ? 'Shorts' : 'Your Library'));
             updateResultCount();
         }
 
@@ -709,6 +689,7 @@
                 playerViews.textContent = formatViews(cv.views);
             }
         }
+        updateSubscriptionUI();
     }
 
     function createRow({ title, subtitle = '', trailing = null, onClick = null }) {
@@ -840,9 +821,18 @@
         const metaEl = document.createElement('div');
         metaEl.className = 'card-meta';
         metaEl.innerHTML = '<span>' + formatViews(video.views || 0) +
-            '</span><span>•</span><span>' + formatDate(video.timestamp) + '</span>';
+            '</span><span>•</span><span>' + formatDate(video.timestamp) + '</span><span>•</span><span>' + (video.status || 'draft') + '</span>';
         textDiv.appendChild(titleEl);
         textDiv.appendChild(metaEl);
+        const subBtn = document.createElement('button');
+        subBtn.className = 'card-subscribe-btn';
+        subBtn.setAttribute('data-creator-id', CREATOR_ID);
+        subBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleSubscription(CREATOR_ID);
+        });
+        textDiv.appendChild(subBtn);
         info.appendChild(textDiv);
 
         const actions = document.createElement('div');
@@ -873,6 +863,98 @@
         return card;
     }
 
+
+    function setupShortsController() {
+        if (!shortsStack) return;
+        const cards = Array.from(shortsStack.querySelectorAll('.short-card'));
+        const state = cards.map(card => ({
+            id: card.dataset.shortId,
+            likes: Number(card.querySelector('[data-role="like-count"]')?.textContent || 0),
+            comments: Number(card.querySelector('[data-role="comment-count"]')?.textContent || 0),
+            creatorHref: card.querySelector('[data-role="creator-link"]')?.href || '#'
+        }));
+        let activeIndex = 0;
+        let touchStartY = 0;
+
+        function syncCard(card, data) {
+            const likeEl = card.querySelector('[data-role="like-count"]');
+            const commentEl = card.querySelector('[data-role="comment-count"]');
+            const creatorEl = card.querySelector('[data-role="creator-link"]');
+            if (likeEl) likeEl.textContent = String(data.likes);
+            if (commentEl) commentEl.textContent = String(data.comments);
+            if (creatorEl) creatorEl.href = data.creatorHref;
+        }
+
+        function setActive(index) {
+            if (index < 0 || index >= cards.length) return;
+            activeIndex = index;
+            cards.forEach((card, i) => {
+                const vid = card.querySelector('.short-video');
+                if (!vid) return;
+                if (i === activeIndex) vid.play().catch(() => {});
+                else vid.pause();
+            });
+        }
+
+        function scrollToIndex(index) {
+            if (index < 0 || index >= cards.length) return;
+            cards[index].scrollIntoView({ behavior: 'smooth', block: 'start' });
+            setActive(index);
+        }
+
+        cards.forEach((card, index) => {
+            syncCard(card, state[index]);
+            card.addEventListener('click', (e) => {
+                const btn = e.target.closest('.short-action-btn');
+                if (!btn) return;
+                const action = btn.dataset.action;
+                if (action === 'like') state[index].likes += 1;
+                if (action === 'comment') state[index].comments += 1;
+                syncCard(card, state[index]);
+            });
+        });
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+                if (entry.isIntersecting && entry.intersectionRatio > 0.6) {
+                    const idx = cards.indexOf(entry.target);
+                    if (idx !== -1) setActive(idx);
+                }
+            });
+        }, { root: shortsStack, threshold: [0.6, 0.9] });
+
+        cards.forEach(card => observer.observe(card));
+
+        shortsStack.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            if (e.deltaY > 0) scrollToIndex(Math.min(cards.length - 1, activeIndex + 1));
+            else if (e.deltaY < 0) scrollToIndex(Math.max(0, activeIndex - 1));
+        }, { passive: false });
+
+        shortsStack.addEventListener('touchstart', (e) => {
+            touchStartY = e.changedTouches[0].clientY;
+        }, { passive: true });
+
+        shortsStack.addEventListener('touchend', (e) => {
+            const delta = touchStartY - e.changedTouches[0].clientY;
+            if (delta > 40) scrollToIndex(Math.min(cards.length - 1, activeIndex + 1));
+            else if (delta < -40) scrollToIndex(Math.max(0, activeIndex - 1));
+        }, { passive: true });
+
+        document.addEventListener('keydown', (e) => {
+            if (!shortsStack.matches(':hover') && !shortsStack.contains(document.activeElement)) return;
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                scrollToIndex(Math.min(cards.length - 1, activeIndex + 1));
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                scrollToIndex(Math.max(0, activeIndex - 1));
+            }
+        });
+
+        setActive(0);
+    }
+
     // ──────────────────────────────────────
     // Load from IndexedDB
     // ──────────────────────────────────────
@@ -898,7 +980,9 @@
                         thumbnail: rec.thumbnail || null,
                         likes: rec.likes || 0,
                         views: rec.views || 0,
-                        liked: rec.liked || false
+                        liked: rec.liked || false,
+                        status: rec.status || 'draft',
+                        metadata: rec.metadata || { title: rec.title || '', description: '', category: '', visibility: 'private' }
                     });
                 } else {
                     const objectURL = URL.createObjectURL(rec.blob);
@@ -912,7 +996,9 @@
                         thumbnail: rec.thumbnail || null,
                         likes: rec.likes || 0,
                         views: rec.views || 0,
-                        liked: rec.liked || false
+                        liked: rec.liked || false,
+                        status: rec.status || 'draft',
+                        metadata: rec.metadata || { title: rec.title || '', description: '', category: '', visibility: 'private' }
                     });
                 }
             }
@@ -923,14 +1009,40 @@
         renderLibrary();
     }
 
+
+    function openStudio() {
+        studioStep = 1;
+        studioDraft = { sourceType: null, file: null, youtubeUrl: '', thumbnail: null, metadata: { title: '', description: '', category: '', visibility: 'private' } };
+        $('#studioFileInput').value = ''; $('#studioLinkInput').value = ''; $('#studioError').textContent=''; $('#studioThumbPreview').removeAttribute('src');
+        studioModal.classList.add('active');
+        renderStudioStep();
+    }
+    function closeStudio() { studioModal.classList.remove('active'); }
+    function renderStudioStep() {
+        document.querySelectorAll('.studio-step').forEach(el => el.hidden = Number(el.dataset.step) !== studioStep);
+        $('#studioProgress').textContent = 'Step ' + studioStep + ' of 4';
+        $('#studioBackBtn').style.visibility = studioStep === 1 ? 'hidden' : 'visible';
+        $('#studioNextBtn').textContent = studioStep === 4 ? 'Finish' : 'Next';
+        if (studioStep===4) $('#studioConfirmText').textContent = `Ready to ${$('#studioPublishNow').checked ? 'publish' : 'save draft'}: ${studioDraft.metadata.title || 'Untitled'}`;
+    }
+    function validateStudioStep(){
+        const err=$('#studioError'); err.textContent='';
+        if(studioStep===1){ const file=$('#studioFileInput').files[0]; const link=$('#studioLinkInput').value.trim(); if((!file && !link) || (file&&link)){ err.textContent='Select either a file or a link.'; return false;} studioDraft.file=file||null; studioDraft.youtubeUrl=link; studioDraft.sourceType=file?'local':'youtube'; }
+        if(studioStep===2){ const t=$('#studioTitleInput').value.trim(); if(!t){err.textContent='Title is required.';return false;} studioDraft.metadata={ title:t, description:$('#studioDescriptionInput').value.trim(), category:$('#studioCategoryInput').value.trim(), visibility:$('#studioVisibilityInput').value}; }
+        return true;
+    }
+    async function finishStudio(){
+        if(studioDraft.sourceType==='local'){ await handleFileUpload(studioDraft.file, studioDraft); } else { await addYouTubeVideo(studioDraft.youtubeUrl, studioDraft); }
+        closeStudio();
+    }
+
     // ──────────────────────────────────────
     // Event Listeners
     // ──────────────────────────────────────
-    document.getElementById('uploadBtn').addEventListener('click', () => {
-        fileInput.click();
-    });
-    document.getElementById('youtubeBtn').addEventListener('click', addYouTubeVideo);
+    document.getElementById('uploadBtn').addEventListener('click', openStudio);
+    document.getElementById('youtubeBtn').addEventListener('click', openStudio);
     document.getElementById('emptyUploadBtn').addEventListener('click', () => {
+        if (!ensureAuth('upload')) return;
         fileInput.click();
     });
     document.getElementById('logoBtn').addEventListener('click', () => {
@@ -1108,12 +1220,69 @@
         activeObjectURLs.clear();
     });
 
+
+    function persistSession() {
+        if (currentUser) localStorage.setItem('klipik_current_user', JSON.stringify(currentUser));
+        else localStorage.removeItem('klipik_current_user');
+    }
+
+    function ensureAuth(viewName = 'library') {
+        if (currentUser) return true;
+        authShell.style.display = '';
+        mainContainer.classList.add('locked');
+        settingsView.style.display = 'none';
+        showToast('Please log in to access ' + viewName + '.', 'error');
+        return false;
+    }
+
+    function setView(viewName) {
+        currentView = viewName;
+        const authed = ensureAuth(viewName);
+        if (!authed) return;
+        authShell.style.display = 'none';
+        mainContainer.classList.remove('locked');
+        settingsView.style.display = (viewName === 'settings') ? '' : 'none';
+        mainContainer.style.display = (viewName === 'library') ? '' : 'none';
+    }
+
+    function renderAuthState() {
+        const authed = !!currentUser;
+        logoutBtn.style.display = authed ? '' : 'none';
+        if (authed) {
+            authShell.style.display = 'none';
+            setView(currentView);
+        } else {
+            authShell.style.display = '';
+            mainContainer.classList.add('locked');
+            mainContainer.style.display = '';
+            settingsView.style.display = 'none';
+        }
+    }
+
+    function initOnboarding() {
+        const steps = Array.from(document.querySelectorAll('.onboarding-step'));
+        let idx = 0;
+        onboardingDots.innerHTML = steps.map((_, i) => `<span class="onboarding-dot ${i===0?'active':''}"></span>`).join('');
+        const dots = Array.from(onboardingDots.children);
+        function paint() {
+            steps.forEach((el, i) => el.classList.toggle('active', i === idx));
+            dots.forEach((el, i) => el.classList.toggle('active', i === idx));
+            onboardingPrevBtn.disabled = idx === 0;
+            onboardingNextBtn.textContent = idx === steps.length - 1 ? 'Done' : 'Next';
+        }
+        onboardingPrevBtn.addEventListener('click', () => { idx = Math.max(0, idx - 1); paint(); });
+        onboardingNextBtn.addEventListener('click', () => { idx = (idx + 1) % steps.length; paint(); });
+        paint();
+    }
+
     // ──────────────────────────────────────
     // Initialization
     // ──────────────────────────────────────
     function init() {
         loadUiState();
         loadTheme();
+        const savedUser = localStorage.getItem('klipik_current_user');
+        currentUser = savedUser ? JSON.parse(savedUser) : null;
         loadVideosFromDB();
         renderNotifications();
         renderSettings();
@@ -1121,7 +1290,53 @@
         updateMuteIcon();
         videoElement.volume = 1;
         volumeBar.value = 1;
+
+        libraryViewBtn.addEventListener('click', () => setView('library'));
+        settingsViewBtn.addEventListener('click', () => setView('settings'));
+        logoutBtn.addEventListener('click', () => { currentUser = null; persistSession(); renderAuthState(); });
+
+        showSignupBtn.addEventListener('click', () => { loginCard.style.display = 'none'; signupCard.style.display = ''; });
+        showLoginBtn.addEventListener('click', () => { signupCard.style.display = 'none'; loginCard.style.display = ''; });
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            currentUser = { email: document.getElementById('loginEmail').value, name: 'Member' };
+            persistSession();
+            renderAuthState();
+            showToast('Welcome back!', 'success');
+        });
+        signupForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            currentUser = { email: document.getElementById('signupEmail').value, name: document.getElementById('signupName').value || 'Member' };
+            persistSession();
+            renderAuthState();
+            showToast('Account created.', 'success');
+        });
     }
 
     init();
+
+    topTabs.forEach((tab) => {
+        tab.addEventListener('click', () => {
+            topTabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            currentView = tab.getAttribute('data-view');
+            renderLibrary();
+        });
+    });
+
+    profileTabs.forEach((tab) => {
+        tab.addEventListener('click', () => {
+            profileTabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            currentProfileSection = tab.getAttribute('data-profile-section');
+            renderLibrary();
+        });
+    });
+
+    profileSubscribeBtn.addEventListener('click', () => toggleSubscription(CREATOR_ID));
 })(); 
+
+    $('#studioCloseBtn').addEventListener('click', closeStudio);
+    $('#studioBackBtn').addEventListener('click', () => { studioStep=Math.max(1,studioStep-1); renderStudioStep(); });
+    $('#studioNextBtn').addEventListener('click', async () => { if(!validateStudioStep()) return; if(studioStep===3){ const custom=$('#studioThumbInput').files[0]; if(custom){ studioDraft.thumbnail = await new Promise(r=>{const fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(custom);}); } if(!studioDraft.thumbnail && studioDraft.file){ studioDraft.thumbnail = await generateThumbnail(studioDraft.file); } } if(studioStep===4){ studioDraft.publishNow = $('#studioPublishNow').checked; await finishStudio(); return; } if(studioStep===1 && studioDraft.file){ $('#studioTitleInput').value = studioDraft.file.name.replace(/\.[^.]+$/, ''); } studioStep++; renderStudioStep(); });
+    $('#studioGenerateThumbBtn').addEventListener('click', async ()=>{ if(studioDraft.file){ studioDraft.thumbnail = await generateThumbnail(studioDraft.file); if(studioDraft.thumbnail) $('#studioThumbPreview').src=studioDraft.thumbnail; } });
